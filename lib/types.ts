@@ -110,6 +110,8 @@ export interface AnalyzeRequest {
   queries: string[];
   region?: string;
   timeRange?: TimeRange;
+  customStart?: string;
+  customEnd?: string;
   category?: string;
   enableGoogleTrends?: boolean;
   enableAlphaVantage?: boolean;

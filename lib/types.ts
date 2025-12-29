@@ -69,6 +69,7 @@ export interface AlphaSlidingWindowResponse {
 
 // Google Trends Types
 export type TimeRange = '1h' | '4h' | '1d' | '7d' | '30d' | '90d' | '1y' | '5y' | 'all';
+export type GoogleTrendsProperty = '' | 'youtube' | 'images' | 'news' | 'shopping' | 'froogle';
 
 export interface TimeSeriesPoint {
   timestamp: number;
@@ -79,12 +80,28 @@ export interface TrendSeries {
   query: string;
   label: string;
   source: string;
+  region?: string;
+  rawMetricName?: string;
   points: TimeSeriesPoint[];
   extra?: {
     description?: string;
     rawMetricName?: string;
     queryDataMap?: Record<string, TimeSeriesPoint[]>;
     queries?: string[];
+    related_queries?: {
+      rising?: Array<{ query: string; value: string }>;
+      top?: Array<{ query: string; value: string }>;
+    };
+    related_topics?: {
+      rising?: Array<{ topic: { title: string }; value: string }>;
+      top?: Array<{ topic: { title: string }; value: string }>;
+    };
+    geo_map?: Array<{
+      geo: string;
+      geoName: string;
+      value: number;
+    }>;
+    category?: string;
   };
 }
 

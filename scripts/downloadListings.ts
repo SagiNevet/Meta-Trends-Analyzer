@@ -69,7 +69,7 @@ async function downloadListings() {
     const key = getKey(listing);
     if (!seen.has(key)) {
       seen.add(key);
-      merged.push({ ...listing, status: 'active' });
+      merged.push({ ...(listing as Record<string, any>), status: 'active' });
     }
   }
 
@@ -78,7 +78,7 @@ async function downloadListings() {
     const key = getKey(listing);
     if (!seen.has(key)) {
       seen.add(key);
-      merged.push({ ...listing, status: 'delisted' });
+      merged.push({ ...(listing as Record<string, any>), status: 'delisted' });
     }
   }
 

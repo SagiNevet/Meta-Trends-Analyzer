@@ -66,7 +66,7 @@ export function parseUserQuery(request: AnalyzeRequest): ParsedQuery {
     .slice(0, 5); // Limit to 5 queries
   
   const timeConfig: TimeConfig = {
-    googleTime: getGoogleTimeParam(request.timeRange, request.customStart, request.customEnd)
+    googleTime: getGoogleTimeParam(request.timeRange || '30d', request.customStart, request.customEnd)
   };
   
   // Handle WORLDWIDE region

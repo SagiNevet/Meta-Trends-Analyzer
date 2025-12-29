@@ -70,6 +70,7 @@ export interface AlphaSlidingWindowResponse {
 // Google Trends Types
 export type TimeRange = '1h' | '4h' | '1d' | '7d' | '30d' | '90d' | '12m' | '1y' | '5y' | 'all' | 'custom';
 export type GoogleTrendsProperty = '' | 'youtube' | 'images' | 'news' | 'shopping' | 'froogle';
+export type LifecycleLabel = 'Rising' | 'Declining' | 'Peak' | 'Stable';
 
 export interface TimeSeriesPoint {
   timestamp: number;

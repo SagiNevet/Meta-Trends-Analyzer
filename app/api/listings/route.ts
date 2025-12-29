@@ -26,27 +26,27 @@ function loadListingsFromCsvText(csvText: string): Listing[] {
     transformHeader: (header: string) => header.trim(),
   }) as { data: Record<string, string>[] };
 
-  return result.data
-    .map((row) => {
-      const symbol = (row.symbol || '').trim().toUpperCase();
-      const name = (row.name || '').trim();
-      const exchange = (row.exchange || '').trim().toUpperCase();
-      const assetType = (row.assetType || row['asset type'] || '').trim();
-      const status = (row.status || '').trim();
+  const listings: Listing[] = [];
+  
+  for (const row of result.data) {
+    const symbol = (row.symbol || '').trim().toUpperCase();
+    const name = (row.name || '').trim();
+    const exchange = (row.exchange || '').trim().toUpperCase();
+    const assetType = (row.assetType || row['asset type'] || '').trim();
+    const status = (row.status || '').trim();
 
-      if (!symbol || !name) {
-        return null;
-      }
-
-      return {
+    if (symbol && name) {
+      listings.push({
         symbol,
         name,
         exchange,
         assetType: assetType || undefined,
         status: status || undefined,
-      };
-    })
-    .filter((listing): listing is Listing => listing !== null);
+      });
+    }
+  }
+  
+  return listings;
 }
 
 // In-memory cache

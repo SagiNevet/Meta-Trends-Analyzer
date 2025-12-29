@@ -23,7 +23,7 @@ function loadListingsFromCsvText(csvText: string): Listing[] {
   const result = PapaInstance.parse(csvText, {
     header: true,
     skipEmptyLines: true,
-    transformHeader: (header) => header.trim(),
+    transformHeader: (header: string) => header.trim(),
   }) as { data: Record<string, string>[] };
 
   return result.data

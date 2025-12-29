@@ -103,6 +103,8 @@ export interface TrendSeries {
       value: number;
     }>;
     category?: string;
+    mock?: boolean;
+    totalVideos?: number;
   };
 }
 

@@ -651,7 +651,7 @@ export default function Home() {
         {results && (
           <>
             {/* Warnings */}
-            {results.warnings.length > 0 && (
+            {results.warnings && results.warnings.length > 0 && (
               <div className="mb-8 bg-yellow-900/20 border border-yellow-700/50 rounded-xl p-4">
                 <h3 className="text-yellow-400 font-semibold mb-2">⚠️ {translations?.[language]?.warnings || (language === 'he' ? 'אזהרות' : 'Warnings')}</h3>
                 <ul className="text-sm text-yellow-200 space-y-1">

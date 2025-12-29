@@ -20,11 +20,11 @@ const getPapa = () => {
  */
 function loadListingsFromCsvText(csvText: string): Listing[] {
   const PapaInstance = getPapa();
-  const result = PapaInstance.parse<Record<string, string>>(csvText, {
+  const result = PapaInstance.parse(csvText, {
     header: true,
     skipEmptyLines: true,
     transformHeader: (header) => header.trim(),
-  });
+  }) as { data: Record<string, string>[] };
 
   return result.data
     .map((row) => {

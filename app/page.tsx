@@ -394,7 +394,7 @@ export default function Home() {
                   <div key={index} className="flex gap-2 items-center">
                     <div className="flex-1 relative">
                       <input
-                        ref={(el) => (queryRefs.current[index] = el)}
+                        ref={(el) => { queryRefs.current[index] = el; }}
                         type="text"
                         value={query}
                         onChange={(e) => {

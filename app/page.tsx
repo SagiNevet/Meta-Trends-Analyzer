@@ -284,7 +284,7 @@ export default function Home() {
         rangeEnd: undefined, // Optional: only if range is 'custom'
         interval: alphaInterval, // Required: DAILY, WEEKLY, or MONTHLY
         ohlc: alphaOHLC, // Required: open, high, low, or close (default: close)
-        calculations: ['CUMULATIVE_RETURN', 'MAX_DRAWDOWN', 'STDDEV'] // Required: metrics to calculate
+        calculations: ['CUMULATIVE_RETURN', 'MAX_DRAWDOWN', 'STDDEV'] as AlphaVantageCalculation[] // Required: metrics to calculate
         };
       
       // Sliding window - to see trends over time and identify decline periods
@@ -296,7 +296,7 @@ export default function Home() {
         interval: alphaInterval, // Required: DAILY, WEEKLY, or MONTHLY
         ohlc: alphaOHLC, // Required: price field
         windowSize: alphaWindowSize, // Required: number of points per window (>= 10) - from user selection
-        calculations: ['CUMULATIVE_RETURN', 'STDDEV'] // Required: metrics to track over time
+        calculations: ['CUMULATIVE_RETURN', 'STDDEV'] as AlphaVantageCalculation[] // Required: metrics to track over time
         };
       }
 

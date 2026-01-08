@@ -672,7 +672,7 @@ export default function Home() {
 
             {/* Trend Cards */}
             {results.series.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <div className="w-full space-y-6 mb-8">
                 {results.series.map((series, index) => (
                   <TrendCard key={index} series={series} formatTimestamp={formatTimestamp} />
                 ))}

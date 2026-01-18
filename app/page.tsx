@@ -670,9 +670,9 @@ export default function Home() {
               </div>
             )}
 
-            {/* Trend Cards */}
+            {/* Trend Cards - Full Width Blocks */}
             {results.series.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <div className="w-full space-y-6 mb-8">
                 {results.series.map((series, index) => (
                   <TrendCard key={index} series={series} formatTimestamp={formatTimestamp} />
                 ))}
@@ -868,7 +868,7 @@ function TrendCard({ series, formatTimestamp }: { series: TrendSeries; formatTim
   };
 
   return (
-    <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700 hover:border-purple-500/50 transition-all">
+    <div className="w-full bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700 hover:border-purple-500/50 transition-all">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>
@@ -1015,19 +1015,46 @@ function AlphaFixedWindowCard({ data }: { data: any }) {
   const symbol = data.symbols[0];
   const metrics = data.metrics[symbol] || {};
   const cumulativeReturn = metrics.cumulativeReturn || 0;
-  const maxDrawdown = metrics.maxDrawdown || 0;
   const stddev = metrics.stddev || 0;
 
-  // Determine recommendation
+  // Calculate period text based on date range
+  const getPeriodText = (start: string, end: string): string => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const diffMs = endDate.getTime() - startDate.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+    const diffDays = diffHours / 24;
+    const diffWeeks = diffDays / 7;
+    const diffMonths = diffDays / 30;
+    const diffYears = diffDays / 365;
+
+    if (diffYears >= 1) {
+      return 'שינוי בשנה האחרונה';
+    } else if (diffMonths >= 1) {
+      return 'שינוי בחודש האחרון';
+    } else if (diffWeeks >= 1) {
+      return 'שינוי בשבוע האחרון';
+    } else if (diffDays >= 1) {
+      return 'שינוי ביום האחרון';
+    } else if (diffHours >= 1) {
+      return 'שינוי בשעה האחרונה';
+    } else {
+      return 'שינוי בתקופה';
+    }
+  };
+
+  const periodText = getPeriodText(data.range.start, data.range.end);
+
+  // Determine recommendation based only on cumulative return
   let recommendation = '';
   let recommendationColor = 'text-gray-300';
   let recommendationIcon = '✅';
   
-  if (cumulativeReturn < -20 || maxDrawdown < -30) {
+  if (cumulativeReturn < -20) {
     recommendation = '🚨 דחוף: החברה חווה ירידות משמעותיות - מומלץ להביא מוצר חדש בהקדם';
     recommendationColor = 'text-red-400';
     recommendationIcon = '🚨';
-  } else if (cumulativeReturn < -10 || maxDrawdown < -20) {
+  } else if (cumulativeReturn < -10) {
     recommendation = '⚠️ תשומת לב: החברה חווה ירידות - כדאי לשקול מוצר חדש בקרוב';
     recommendationColor = 'text-yellow-400';
     recommendationIcon = '⚠️';
@@ -1063,26 +1090,16 @@ function AlphaFixedWindowCard({ data }: { data: any }) {
       </div>
 
       {/* Simplified Metrics Display */}
-      <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-          <div className="text-sm text-gray-400 mb-1">שינוי כולל בתקופה</div>
+          <div className="text-sm text-gray-400 mb-1">{periodText}</div>
           <div className={`text-2xl font-bold ${cumulativeReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
             {cumulativeReturn.toFixed(1)}%
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            {cumulativeReturn >= 0 ? 'עלייה' : 'ירידה'} במחיר המניה
+            {cumulativeReturn >= 0 ? 'עלייה' : 'ירידה'} במחיר המניה בתקופה שנבחרה
             </div>
             </div>
-        
-        <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-          <div className="text-sm text-gray-400 mb-1">ירידה מקסימלית</div>
-          <div className={`text-2xl font-bold ${maxDrawdown > -20 ? 'text-yellow-400' : 'text-red-400'}`}>
-            {maxDrawdown.toFixed(1)}%
-            </div>
-          <div className="text-xs text-gray-500 mt-1">
-            הירידה הגדולה ביותר מתחילת התקופה
-          </div>
-        </div>
         
         <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
           <div className="text-sm text-gray-400 mb-1">תנודתיות</div>

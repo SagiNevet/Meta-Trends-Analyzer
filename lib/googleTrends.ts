@@ -91,6 +91,100 @@ export async function fetchGoogleTrends(
     });
 
     if (!response.ok) {
+      // Fallback mechanism for Shopping and Froogle - retry without gprop if 400 error
+      if (response.status === 400 && (gprop === 'shopping' || gprop === 'froogle')) {
+        console.warn(`Google Trends ${gprop} returned 400, retrying without gprop parameter...`);
+        try {
+          // Retry without gprop parameter
+          const fallbackParams = new URLSearchParams({
+            api_key: apiKey!,
+            engine: 'google_trends',
+            q: queryString,
+            data_type: 'TIMESERIES',
+            time: timeParam,
+            ...(region && { geo: region.toUpperCase() }),
+            ...(category && { cat: category })
+          });
+
+          const fallbackResponse = await fetch(`${SEARCHAPI_BASE_URL}?${fallbackParams.toString()}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (fallbackResponse.ok) {
+            const fallbackData: GoogleTrendsResponse = await fallbackResponse.json();
+            
+            if (fallbackData.error) {
+              throw new Error(fallbackData.error);
+            }
+
+            if (!fallbackData.interest_over_time?.timeline_data) {
+              return null;
+            }
+
+            // Process timeline data - handle multiple queries
+            const queryDataMap: Record<string, TimeSeriesPoint[]> = {};
+            keywords.forEach((keyword) => {
+              queryDataMap[keyword] = [];
+            });
+
+            fallbackData.interest_over_time.timeline_data.forEach((item) => {
+              const timestamp = parseInt(item.timestamp, 10);
+              if (isNaN(timestamp)) return;
+
+              const values = item.values || [];
+              values.forEach((v) => {
+                const matchedKeyword = keywords.find(k => 
+                  v.query?.toLowerCase().includes(k.toLowerCase()) || 
+                  k.toLowerCase().includes(v.query?.toLowerCase() || '')
+                );
+                
+                if (matchedKeyword && queryDataMap[matchedKeyword]) {
+                  queryDataMap[matchedKeyword].push({
+                    timestamp,
+                    value: v.extracted_value || 0
+                  });
+                }
+              });
+            });
+
+            const points: TimeSeriesPoint[] = fallbackData.interest_over_time.timeline_data
+              .map((item) => {
+                const timestamp = parseInt(item.timestamp, 10);
+                const values = item.values || [];
+                const totalValue = values.reduce((sum, v) => sum + (v.extracted_value || 0), 0);
+                const avgValue = values.length > 0 ? totalValue / values.length : 0;
+                return { timestamp, value: avgValue };
+              })
+              .filter((point) => !isNaN(point.timestamp));
+
+            const source = GPROP_SOURCES[gprop] as any;
+            const label = `Google ${GPROP_LABELS[gprop]}`;
+
+            return {
+              source,
+              label,
+              query: queryString,
+              region: region || 'WORLDWIDE',
+              rawMetricName: 'interest_index',
+              points,
+              extra: {
+                description: `Search interest on Google ${GPROP_LABELS[gprop]} over time (0-100 scale)`,
+                related_queries: fallbackData.related_queries,
+                related_topics: fallbackData.related_topics,
+                geo_map: fallbackData.geo_map,
+                queries: keywords,
+                queryDataMap: queryDataMap,
+                category: category || 'All categories'
+              }
+            };
+          }
+        } catch (fallbackError) {
+          console.warn(`Google Trends ${gprop} fallback also failed:`, fallbackError);
+        }
+      }
       throw new Error(`Google Trends API error: ${response.status}`);
     }
 

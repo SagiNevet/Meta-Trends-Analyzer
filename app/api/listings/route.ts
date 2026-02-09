@@ -47,7 +47,7 @@ function loadListingsFromCsvText(csvText: string): Listing[] {
         status: status || undefined,
       };
     })
-    .filter((listing): listing is Listing => listing !== null) as Listing[];
+    .filter((listing) => listing !== null) as Listing[];
   return listings;
 }
 

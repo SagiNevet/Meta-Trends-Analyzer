@@ -151,11 +151,11 @@ export async function fetchGoogleTrends(
       source,
       label,
       query: queryString,
-      region: region || 'WORLDWIDE',
-      rawMetricName: 'interest_index',
       points,
       extra: {
         description: `Search interest on Google ${GPROP_LABELS[gprop]} over time (0-100 scale)`,
+        rawMetricName: 'interest_index',
+        region: region || 'WORLDWIDE',
         related_queries: data.related_queries ? {
           top: data.related_queries.top?.map((q) => ({ query: q.query, value: Number(q.value) || 0 })),
           rising: data.related_queries.rising?.map((q) => ({ query: q.query, value: Number(q.value) || 0 }))

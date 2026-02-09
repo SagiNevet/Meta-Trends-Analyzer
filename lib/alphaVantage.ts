@@ -654,6 +654,9 @@ export async function fetchAlphaSlidingWindow(
         const priceAtPeriodStart = symbolData[symbol][0].price;
         const priceAtWindowEnd = symbolData[symbol][windowEndIdx].price;
         metrics.returnFromPeriodStart = ((priceAtWindowEnd - priceAtPeriodStart) / priceAtPeriodStart) * 100;
+        
+        // Store the actual price for chart display
+        metrics.price = priceAtWindowEnd;
 
         window.metrics[symbol] = metrics;
       }

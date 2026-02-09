@@ -47,66 +47,32 @@ export async function POST(request: NextRequest) {
     sections.push(rowToCsv(['Meta Trends Analysis', dateStr]));
     sections.push(emptyRows(2));
 
-    // ========== Google Trends: one section per MODEL/PRODUCT (each query gets its own block) ==========
-    if (results.series && results.series.length > 0) {
-      sections.push(rowToCsv(['========== Google Trends ==========']));
-      sections.push(emptyRows(1));
-
-      let productNumber = 0;
-      for (const series of results.series) {
-        const sourceLabel = (series.label || series.source || series.query).trim();
-        const queryDataMap = series.extra?.queryDataMap;
-        const hasPerModel = queryDataMap && Object.keys(queryDataMap).length > 0;
-
-        if (hasPerModel) {
-          // One clear section per model/product (iphone 12, iphone 13, etc.)
-          const models = series.extra?.queries || Object.keys(queryDataMap!);
-          for (const modelName of models) {
-            const points = queryDataMap![modelName];
-            if (!points || points.length === 0) continue;
-            productNumber++;
-            sections.push(rowToCsv(['--- מודל ' + productNumber + ' / Model: ' + modelName.trim() + ' (' + sourceLabel + ') ---']));
-            sections.push(rowToCsv(['Source', series.source]));
-            sections.push(rowToCsv(['Query', modelName.trim()]));
-            if (series.extra?.description) {
-              sections.push(rowToCsv(['Description', series.extra.description]));
-            }
-            sections.push(emptyRows(1));
-            sections.push(rowToCsv(['Date', 'Value']));
-            const sorted = [...points].sort((a, b) => a.timestamp - b.timestamp);
-            for (const p of sorted) {
-              sections.push(rowToCsv([new Date(p.timestamp * 1000).toISOString().split('T')[0], p.value]));
-            }
-            sections.push(emptyRows(2));
-          }
-        } else {
-          // No per-query data: one section for the whole series (combined)
-          productNumber++;
-          sections.push(rowToCsv(['--- מודל ' + productNumber + ' / Product: ' + sourceLabel + ' ---']));
-          sections.push(rowToCsv(['Source', series.source]));
-          sections.push(rowToCsv(['Query', series.query]));
-          if (series.extra?.description) {
-            sections.push(rowToCsv(['Description', series.extra.description]));
-          }
-          sections.push(emptyRows(1));
-          sections.push(rowToCsv(['Date', 'Value']));
-          const points = [...series.points].sort((a, b) => a.timestamp - b.timestamp);
-          for (const p of points) {
-            sections.push(rowToCsv([new Date(p.timestamp * 1000).toISOString().split('T')[0], p.value]));
-          }
-          sections.push(emptyRows(2));
-        }
-      }
-    }
-
-    // ========== Summary: Date + one column per model (for comparison) ==========
+    // ========== Summary: Date + one column per model per source (for comparison) ==========
     if (results.series && results.series.length > 0) {
       sections.push(rowToCsv(['========== Summary: all models side by side ==========']));
       sections.push(emptyRows(1));
 
-      type Col = { seriesIdx: number; model: string; getValue: (ts: number) => number | '' };
+      type Col = { seriesIdx: number; model: string; sourceLabel: string; getValue: (ts: number) => number | '' };
       const columns: Col[] = [];
+      
+      // Helper to get short source name
+      const getShortSourceName = (label: string, source: string): string => {
+        const labelLower = label.toLowerCase();
+        if (labelLower.includes('web') && !labelLower.includes('youtube')) return 'Web';
+        if (labelLower.includes('youtube')) return 'YouTube';
+        if (labelLower.includes('shopping')) return 'Shopping';
+        if (labelLower.includes('images')) return 'Images';
+        if (labelLower.includes('news')) return 'News';
+        if (labelLower.includes('froogle')) return 'Froogle';
+        // Fallback to source if label doesn't match
+        if (source.includes('web')) return 'Web';
+        if (source.includes('youtube')) return 'YouTube';
+        if (source.includes('shopping')) return 'Shopping';
+        return 'Trends';
+      };
+      
       results.series.forEach((series, seriesIdx) => {
+        const sourceLabel = getShortSourceName(series.label || '', series.source || '');
         const qdm = series.extra?.queryDataMap;
         if (qdm && Object.keys(qdm).length > 0) {
           const models = series.extra?.queries || Object.keys(qdm);
@@ -115,7 +81,8 @@ export async function POST(request: NextRequest) {
             if (points && points.length > 0) {
               columns.push({
                 seriesIdx,
-                model: model.trim(),
+                model: `${model.trim()} (${sourceLabel})`,
+                sourceLabel,
                 getValue: (ts) => {
                   const pt = points.find((p) => p.timestamp === ts);
                   return pt != null ? pt.value : '';
@@ -124,15 +91,33 @@ export async function POST(request: NextRequest) {
             }
           });
         } else {
+          // No per-query data: use series label/query as model name
+          const modelName = (series.label || series.query).trim();
           columns.push({
             seriesIdx,
-            model: (series.label || series.query).trim(),
+            model: `${modelName} (${sourceLabel})`,
+            sourceLabel,
             getValue: (ts) => {
               const pt = series.points.find((p) => p.timestamp === ts);
               return pt != null ? pt.value : '';
             },
           });
         }
+      });
+
+      // Sort columns: group by model name (without source), then by source order
+      const sourceOrder: Record<string, number> = { 'Web': 1, 'YouTube': 2, 'Shopping': 3, 'Images': 4, 'News': 5, 'Froogle': 6, 'Trends': 7 };
+      columns.sort((a, b) => {
+        // Extract model name (before parentheses)
+        const modelA = a.model.split(' (')[0].toLowerCase();
+        const modelB = b.model.split(' (')[0].toLowerCase();
+        if (modelA !== modelB) {
+          return modelA.localeCompare(modelB);
+        }
+        // Same model: sort by source order
+        const sourceOrderA = sourceOrder[a.sourceLabel] || 99;
+        const sourceOrderB = sourceOrder[b.sourceLabel] || 99;
+        return sourceOrderA - sourceOrderB;
       });
 
       const allTs = new Set<number>();

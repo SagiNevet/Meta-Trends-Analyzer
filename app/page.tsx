@@ -680,7 +680,7 @@ export default function Home() {
 
             {/* Trend Cards */}
             {results.series.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <div className="grid grid-cols-1 gap-6 mb-8">
                 {results.series.map((series, index) => (
                   <TrendCard key={index} series={series} formatTimestamp={formatTimestamp} />
                 ))}
@@ -1213,13 +1213,30 @@ function AlphaSlidingWindowCard({ data }: { data: any }) {
     return symbolColors[symbol] || '#8B5CF6';
   };
 
-  // Chart: first point = 0% (start of period), then each point = change vs period start (returnFromPeriodStart)
+  // Chart: display actual price instead of return percentage
   const firstPoint: any = {
     date: data.range.start,
     timestamp: new Date(data.range.start).getTime()
   };
+  // Get first price for each symbol - calculate from first window price and returnFromPeriodStart
   data.symbols.forEach((symbol: string) => {
-    firstPoint[`${symbol}_return`] = 0;
+    const firstWindow = data.windows[0];
+    if (firstWindow?.metrics[symbol]) {
+      const firstMetrics = firstWindow.metrics[symbol];
+      if (firstMetrics.price !== undefined && firstMetrics.returnFromPeriodStart !== undefined) {
+        // Calculate first price: if first window has price P and return R%, then first price = P / (1 + R/100)
+        const firstWindowPrice = firstMetrics.price;
+        const firstReturn = firstMetrics.returnFromPeriodStart;
+        firstPoint[`${symbol}_price`] = firstWindowPrice / (1 + firstReturn / 100);
+      } else if (firstMetrics.price !== undefined) {
+        // If no returnFromPeriodStart, use the price directly (shouldn't happen, but fallback)
+        firstPoint[`${symbol}_price`] = firstMetrics.price;
+      } else {
+        firstPoint[`${symbol}_price`] = undefined;
+      }
+    } else {
+      firstPoint[`${symbol}_price`] = undefined;
+    }
     firstPoint[`${symbol}_stddev`] = undefined;
   });
 
@@ -1233,9 +1250,9 @@ function AlphaSlidingWindowCard({ data }: { data: any }) {
       if (metrics.stddev !== undefined) {
         point[`${symbol}_stddev`] = metrics.stddev;
       }
-      const returnVal = metrics.returnFromPeriodStart ?? metrics.cumulativeReturn;
-      if (returnVal !== undefined) {
-        point[`${symbol}_return`] = returnVal;
+      // Use actual price instead of return
+      if (metrics.price !== undefined) {
+        point[`${symbol}_price`] = metrics.price;
       }
     });
     if (window.correlation) {
@@ -1258,14 +1275,14 @@ function AlphaSlidingWindowCard({ data }: { data: any }) {
         מעקב אחר ירידות במחיר המניה לאורך זמן – אזורים אדומים מצביעים על צורך במוצר חדש
       </div>
 
-      {/* Rolling Return Chart - Main focus for product timing */}
-      {data.windows.length > 0 && data.windows[0].metrics[data.symbols[0]]?.cumulativeReturn !== undefined && (
+      {/* Price Chart - Main focus for product timing */}
+      {data.windows.length > 0 && data.windows[0].metrics[data.symbols[0]]?.price !== undefined && (
         <div className="mb-6">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-900/40 border border-blue-500/50 text-blue-200 text-lg font-semibold mb-3">
-            📉 מגמת שינוי במחיר לאורך זמן
+            📈 מחיר המניה לאורך זמן
           </div>
           <div className="rounded-lg bg-gray-800/50 border border-blue-500/30 px-4 py-2.5 text-gray-300 text-sm mb-3">
-            ערכים שליליים (אדום) מצביעים על ירידות – זמן טוב לשקול מוצר חדש. הנתונים מוצגים לפי שבועות בין {formatDisplayDate(data.range.start)} ל־{formatDisplayDate(data.range.end)}
+            מעקב אחר מחיר המניה לאורך זמן. הנתונים מוצגים לפי שבועות בין {formatDisplayDate(data.range.start)} ל־{formatDisplayDate(data.range.end)}
           </div>
           <div style={{ height: '350px' }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -1281,8 +1298,8 @@ function AlphaSlidingWindowCard({ data }: { data: any }) {
                   stroke="#9CA3AF"
                   tick={{ fill: '#9CA3AF', fontSize: 12 }}
                   tickLine={{ stroke: '#374151' }}
-                  tickFormatter={(v) => typeof v === 'number' ? v.toFixed(0) + '%' : String(v)}
-                  label={{ value: 'שינוי באחוזים', angle: -90, position: 'insideLeft', style: { fill: '#9CA3AF' } }}
+                  tickFormatter={(v) => typeof v === 'number' ? v.toFixed(2) : String(v)}
+                  label={{ value: 'מחיר', angle: -90, position: 'insideLeft', style: { fill: '#9CA3AF' } }}
                 />
                 <Tooltip
                   contentStyle={{
@@ -1291,33 +1308,29 @@ function AlphaSlidingWindowCard({ data }: { data: any }) {
                     borderRadius: '8px',
                     color: '#F3F4F6'
                   }}
-                  formatter={(value: number, name) => [typeof value === 'number' ? value.toFixed(1) + '%' : value, name]}
+                  formatter={(value: number, name) => {
+                    if (typeof value === 'number') {
+                      const fmt = (n: number) => (n >= 1e6 || (n < 0.01 && n > 0)) ? n.toFixed(2) : n.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                      return [fmt(value), name];
+                    }
+                    return [value, name];
+                  }}
                   labelFormatter={(label) => (label ? formatDisplayDate(String(label)) : label)}
                 />
                 <Legend 
                   wrapperStyle={{ color: '#9CA3AF', fontSize: '12px' }}
                   iconType="line"
                 />
-                {/* Reference line at 0 */}
-                  <Line
-                  type="linear"
-                  dataKey={() => 0}
-                  stroke="#EF4444"
-                  strokeWidth={1}
-                  strokeDasharray="5 5"
-                    dot={false}
-                  name="קו אפס (אין שינוי)"
-                />
                 {data.symbols.map((symbol: string) => (
                   <Line
-                    key={`${symbol}_return`}
+                    key={`${symbol}_price`}
                     type="monotone"
-                    dataKey={`${symbol}_return`}
+                    dataKey={`${symbol}_price`}
                     stroke={getSymbolColor(symbol)}
                     strokeWidth={3}
                     dot={false}
                     activeDot={{ r: 5 }}
-                    name={`${symbol} - שינוי במחיר`}
+                    name={`${symbol} - מחיר`}
                   />
                 ))}
               </LineChart>

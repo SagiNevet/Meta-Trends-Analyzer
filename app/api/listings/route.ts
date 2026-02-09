@@ -27,7 +27,7 @@ function loadListingsFromCsvText(csvText: string): Listing[] {
   });
 
   const data = (result.data || []) as Record<string, string>[];
-  return data
+  const listings = data
     .map((row) => {
       const symbol = (row.symbol || '').trim().toUpperCase();
       const name = (row.name || '').trim();
@@ -47,7 +47,8 @@ function loadListingsFromCsvText(csvText: string): Listing[] {
         status: status || undefined,
       };
     })
-    .filter((listing): listing is Listing => listing !== null);
+    .filter((listing): listing is Listing => listing !== null) as Listing[];
+  return listings;
 }
 
 // In-memory cache

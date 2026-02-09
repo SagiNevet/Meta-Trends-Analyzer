@@ -68,7 +68,7 @@ export interface AlphaSlidingWindowResponse {
 }
 
 // Google Trends Types
-export type TimeRange = '1h' | '4h' | '1d' | '7d' | '30d' | '90d' | '1y' | '5y' | 'all';
+export type TimeRange = '1h' | '4h' | '1d' | '7d' | '30d' | '12m' | '90d' | '1y' | '5y' | 'all' | 'custom';
 
 /** Google Trends data source (gprop): '' = web, youtube, images, news, shopping, froogle */
 export type GoogleTrendsProperty = '' | 'youtube' | 'images' | 'news' | 'shopping' | 'froogle';

@@ -56,7 +56,7 @@ git add .
 $status = git status --porcelain
 if ($status) {
     Write-Host "Committing changes..." -ForegroundColor Cyan
-    git commit -m "Update: UI improvements, date styling, free text frames"
+    git commit -m "Update project"
 } else {
     Write-Host "No changes to commit (working tree clean)" -ForegroundColor Yellow
 }
@@ -64,7 +64,12 @@ if ($status) {
 # Push to GitHub (triggers Vercel deploy if connected)
 Write-Host "Pushing to GitHub..." -ForegroundColor Cyan
 Write-Host "If prompted: use GitHub username + Personal Access Token (not password)" -ForegroundColor Yellow
-git push -u origin $branch
+$pushResult = git push -u origin $branch 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Push failed. If rejected, run: git push origin master --force" -ForegroundColor Yellow
+    Write-Host $pushResult
+    exit 1
+}
 
 Write-Host "=== Deployment Complete! ===" -ForegroundColor Green
 Write-Host "Repository URL: $remoteUrl" -ForegroundColor Cyan

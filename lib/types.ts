@@ -78,6 +78,9 @@ export interface TimeSeriesPoint {
   value: number;
 }
 
+/** Lifecycle stage of a trend (from lifecycle analysis) */
+export type LifecycleLabel = 'Rising' | 'Peak' | 'Declining' | 'Stable';
+
 export interface TrendSeries {
   query: string;
   label: string;

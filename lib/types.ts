@@ -94,6 +94,11 @@ export interface TrendSeries {
       top?: Array<{ query: string; value: number }>;
       rising?: Array<{ query: string; value: number }>;
     };
+    related_topics?: {
+      top?: Array<{ topic: { title: string }; value: string }>;
+      rising?: Array<{ topic: { title: string }; value: string }>;
+    };
+    geo_map?: Array<{ geo: string; geoName: string; value: number }>;
   };
 }
 

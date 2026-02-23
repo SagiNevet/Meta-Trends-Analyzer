@@ -83,15 +83,37 @@ export async function fetchGoogleTrends(
   });
 
   try {
-    const response = await fetch(`${SEARCHAPI_BASE_URL}?${params.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+    // Retry logic for rate limiting
+    let retryCount = 0;
+    const maxRetries = 3;
+    let response: Response;
+    
+    while (retryCount <= maxRetries) {
+      response = await fetch(`${SEARCHAPI_BASE_URL}?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
 
-    if (!response.ok) {
-      throw new Error(`Google Trends API error: ${response.status}`);
+      // Handle rate limiting (429) with exponential backoff
+      if (response.status === 429) {
+        if (retryCount < maxRetries) {
+          const waitTime = Math.pow(2, retryCount) * 2000; // 2s, 4s, 8s
+          console.log(`Google Trends API rate limit (429) hit, waiting ${waitTime}ms before retry ${retryCount + 1}/${maxRetries}`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          retryCount++;
+          continue;
+        } else {
+          throw new Error(`Google Trends API rate limit exceeded (429). Please wait a moment and try again. SearchAPI.io free tier allows limited requests per month.`);
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(`Google Trends API error: ${response.status} ${response.statusText}`);
+      }
+
+      break; // Success, exit retry loop
     }
 
     const data: GoogleTrendsResponse = await response.json();

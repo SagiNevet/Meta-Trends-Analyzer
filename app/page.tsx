@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { 
   AnalyzeRequest, 
@@ -165,13 +165,16 @@ export default function Home() {
   const [results, setResults] = useState<AnalyzeResponse | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   
-  // Google Trends toggles
-  const [enableGoogleWeb, setEnableGoogleWeb] = useState(true);
-  const [enableGoogleYoutube, setEnableGoogleYoutube] = useState(true);
-  const [enableGoogleImages, setEnableGoogleImages] = useState(false);
-  const [enableGoogleNews, setEnableGoogleNews] = useState(false);
-  const [enableGoogleShopping, setEnableGoogleShopping] = useState(false);
-  const [enableGoogleFroogle, setEnableGoogleFroogle] = useState(false);
+  // Google Trends source - only ONE can be enabled at a time (radio button style)
+  const [selectedGoogleSource, setSelectedGoogleSource] = useState<'web' | 'youtube' | 'images' | 'news' | 'shopping' | 'froogle'>('web');
+  
+  // Derived states for backward compatibility
+  const enableGoogleWeb = selectedGoogleSource === 'web';
+  const enableGoogleYoutube = selectedGoogleSource === 'youtube';
+  const enableGoogleImages = selectedGoogleSource === 'images';
+  const enableGoogleNews = selectedGoogleSource === 'news';
+  const enableGoogleShopping = selectedGoogleSource === 'shopping';
+  const enableGoogleFroogle = selectedGoogleSource === 'froogle';
   
   // Advanced options
   const [category, setCategory] = useState('');
@@ -179,7 +182,6 @@ export default function Home() {
   // Data source toggles
   const [enableGoogleTrends, setEnableGoogleTrends] = useState(true);
   const [enableAlphaVantage, setEnableAlphaVantage] = useState(false);
-  
   // Alpha Vantage state - simplified for product launch timing
   const [alphaPrimarySymbol, setAlphaPrimarySymbol] = useState('AAPL');
   const [alphaRange, setAlphaRange] = useState<AlphaVantageRange>('5year');
@@ -197,11 +199,165 @@ export default function Home() {
   
   // Refs for ENTER navigation
   const queryRefs = useRef<(HTMLInputElement | null)[]>([]);
+  
+  // Autocomplete and Drag & Drop states
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState<boolean[]>([]);
+  const [selectedSuggestionIndices, setSelectedSuggestionIndices] = useState<number[]>([]);
+  const [dragActive, setDragActive] = useState(false);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+
+  // Load saved queries from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('trends_queries_history');
+    if (saved) {
+      try {
+        const history = JSON.parse(saved);
+        setSuggestions(history);
+      } catch (e) {
+        console.error('Error loading query history:', e);
+      }
+    }
+  }, []);
+
+  // Save query to history
+  const saveQueryToHistory = (query: string) => {
+    if (!query.trim()) return;
+    
+    const saved = localStorage.getItem('trends_queries_history');
+    let history: string[] = saved ? JSON.parse(saved) : [];
+    
+    // Remove if exists and add to beginning
+    history = history.filter(q => q.toLowerCase() !== query.toLowerCase());
+    history.unshift(query.trim());
+    
+    // Keep only last 50 queries
+    history = history.slice(0, 50);
+    
+    localStorage.setItem('trends_queries_history', JSON.stringify(history));
+    setSuggestions(history);
+  };
+
+  // Handle file drop
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    const textFile = files.find(f => f.type === 'text/plain' || f.name.endsWith('.txt'));
+    
+    if (textFile) {
+      const text = await textFile.text();
+      const lines = text
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .slice(0, 5); // Max 5 queries
+      
+      if (lines.length > 0) {
+        // Replace all queries with file content (up to 5)
+        const newQueries = lines.slice(0, 5);
+        // If we have less than 5 lines, add empty fields to reach 5
+        while (newQueries.length < 5) {
+          newQueries.push('');
+        }
+        // Save all lines to history
+        lines.forEach(line => saveQueryToHistory(line));
+        setQueries(newQueries);
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  };
+
+  // Filter suggestions based on input
+  const getFilteredSuggestions = (input: string, index: number): string[] => {
+    if (!input || input.length < 2) return [];
+    const lowerInput = input.toLowerCase();
+    return suggestions
+      .filter(s => s.toLowerCase().includes(lowerInput))
+      .slice(0, 5); // Show max 5 suggestions
+  };
+
+  // Handle file input change
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const text = await file.text();
+      const lines = text
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .slice(0, 5);
+      
+      if (lines.length > 0) {
+        // Replace all queries with file content (up to 5)
+        const newQueries = lines.slice(0, 5);
+        // If we have less than 5 lines, add empty fields to reach 5
+        while (newQueries.length < 5) {
+          newQueries.push('');
+        }
+        // Save all lines to history
+        lines.forEach(line => saveQueryToHistory(line));
+        setQueries(newQueries);
+      }
+    }
+    // Reset input
+    e.target.value = '';
+  };
 
   const handleQueryChange = (index: number, value: string) => {
     const newQueries = [...queries];
     newQueries[index] = value;
     setQueries(newQueries);
+    
+    // Show suggestions if input has at least 2 characters
+    const newShowSuggestions = [...showSuggestions];
+    newShowSuggestions[index] = value.length >= 2;
+    setShowSuggestions(newShowSuggestions);
+    const newSelectedIndices = [...selectedSuggestionIndices];
+    newSelectedIndices[index] = -1;
+    setSelectedSuggestionIndices(newSelectedIndices);
+  };
+
+  // Select suggestion
+  const selectSuggestion = (index: number, suggestion: string) => {
+    handleQueryChange(index, suggestion);
+    const newShowSuggestions = [...showSuggestions];
+    newShowSuggestions[index] = false;
+    setShowSuggestions(newShowSuggestions);
+    const newSelectedIndices = [...selectedSuggestionIndices];
+    newSelectedIndices[index] = -1;
+    setSelectedSuggestionIndices(newSelectedIndices);
+    queryRefs.current[index]?.focus();
+  };
+
+  // Save query when user finishes typing (on blur)
+  const handleQueryBlur = (index: number) => {
+    const query = queries[index]?.trim();
+    if (query) {
+      saveQueryToHistory(query);
+    }
+    // Delay hiding suggestions to allow click on suggestion
+    setTimeout(() => {
+      const newShowSuggestions = [...showSuggestions];
+      newShowSuggestions[index] = false;
+      setShowSuggestions(newShowSuggestions);
+      const newSelectedIndices = [...selectedSuggestionIndices];
+      newSelectedIndices[index] = -1;
+      setSelectedSuggestionIndices(newSelectedIndices);
+    }, 200);
   };
 
   const addQueryField = (index: number) => {
@@ -224,11 +380,47 @@ export default function Home() {
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    const filtered = getFilteredSuggestions(queries[index] || '', index);
+    const hasSuggestions = showSuggestions[index] && filtered.length > 0;
+    const currentSelectedIndex = selectedSuggestionIndices[index] ?? -1;
+    
+    if (hasSuggestions) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const newSelectedIndices = [...selectedSuggestionIndices];
+        newSelectedIndices[index] = currentSelectedIndex < filtered.length - 1 ? currentSelectedIndex + 1 : currentSelectedIndex;
+        setSelectedSuggestionIndices(newSelectedIndices);
+        return;
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const newSelectedIndices = [...selectedSuggestionIndices];
+        newSelectedIndices[index] = currentSelectedIndex > 0 ? currentSelectedIndex - 1 : -1;
+        setSelectedSuggestionIndices(newSelectedIndices);
+        return;
+      } else if (e.key === 'Enter' && currentSelectedIndex >= 0) {
+        e.preventDefault();
+        selectSuggestion(index, filtered[currentSelectedIndex]);
+        return;
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        const newShowSuggestions = [...showSuggestions];
+        newShowSuggestions[index] = false;
+        setShowSuggestions(newShowSuggestions);
+        const newSelectedIndices = [...selectedSuggestionIndices];
+        newSelectedIndices[index] = -1;
+        setSelectedSuggestionIndices(newSelectedIndices);
+        return;
+      }
+    }
+    
     if (e.key === 'Enter') {
       e.preventDefault();
       const currentValue = queries[index]?.trim();
       
       if (currentValue) {
+        // Save to history
+        saveQueryToHistory(currentValue);
+        
         // If there's a value and we're not at max, add new field
         if (index === queries.length - 1 && queries.length < 5) {
           addQueryField(index);
@@ -395,6 +587,43 @@ export default function Home() {
                 <span className="text-gray-500 mx-2">|</span>
                 <span className="text-xs text-gray-400">Press ENTER or click + to add more</span>
               </div>
+              
+              {/* Drag & Drop Zone */}
+              <div
+                ref={dropZoneRef}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                className={`border-2 border-dashed rounded-xl p-6 text-center transition-all mb-4 ${
+                  dragActive
+                    ? 'border-purple-500 bg-purple-500/10'
+                    : 'border-gray-600 bg-gray-800/30 hover:border-purple-400/50'
+                }`}
+              >
+                <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <p className="text-gray-300 mb-1">
+                  {language === 'he' ? 'גרור קובץ טקסט (.txt) כאן או לחץ לבחירה' : 'Drag a text file (.txt) here or click to select'}
+                </p>
+                <p className="text-gray-500 text-sm">
+                  {language === 'he' ? 'כל שורה = מוצר אחד (עד 5 מוצרים)' : 'Each line = one product (up to 5 products)'}
+                </p>
+                <input
+                  type="file"
+                  accept=".txt,text/plain"
+                  onChange={handleFileInput}
+                  className="hidden"
+                  id="file-upload"
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="mt-3 inline-block px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg cursor-pointer transition-colors"
+                >
+                  {language === 'he' ? 'בחר קובץ' : 'Select File'}
+                </label>
+              </div>
+              
               <div className="space-y-3">
                 {queries.map((query, index) => (
                   <div key={index} className="flex gap-2 items-center">
@@ -415,15 +644,36 @@ export default function Home() {
                             }
                           }
                         }}
+                        onBlur={() => handleQueryBlur(index)}
                         onKeyDown={(e) => handleKeyDown(index, e)}
                         placeholder={index === 0 ? (enableGoogleTrends ? 'e.g., iPhone 16' : 'לא נדרש עבור Alpha Vantage') : `Query ${index + 1}`}
                         disabled={!enableGoogleTrends}
                         className={`w-full px-6 py-4 bg-gray-900/80 border border-purple-500/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-lg ${!enableGoogleTrends ? 'opacity-50 cursor-not-allowed' : ''}`}
                       />
+                      
+                      {/* Autocomplete Suggestions */}
+                      {showSuggestions[index] && getFilteredSuggestions(query, index).length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-purple-500/50 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                          {getFilteredSuggestions(query, index).map((suggestion, sugIndex) => (
+                            <div
+                              key={sugIndex}
+                              onClick={() => selectSuggestion(index, suggestion)}
+                              className={`px-4 py-2 cursor-pointer text-gray-200 text-sm transition-colors ${
+                                sugIndex === (selectedSuggestionIndices[index] ?? -1)
+                                  ? 'bg-purple-600/50'
+                                  : 'hover:bg-purple-600/30'
+                              }`}
+                            >
+                              {suggestion}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
                       {index > 0 && (
                         <button
                           onClick={() => removeQueryField(index)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-red-400 hover:text-red-300 transition-colors"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-red-400 hover:text-red-300 transition-colors z-10"
                           title="Remove query"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -515,43 +765,73 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Google Trends Toggles */}
+            {/* Google Trends Source Selection - Radio Buttons (Only One Active) */}
             {enableGoogleTrends && (
             <div className="mb-6">
               <div className="inline-flex items-center px-4 py-2 rounded-lg bg-purple-900/30 border border-purple-500/40 text-purple-200 text-sm font-medium mb-3">
-                Google Trends Data Sources
+                Google Trends Data Source (Select One)
               </div>
               <div className="flex flex-wrap gap-3">
-                <ToggleChip
-                  label="🔍 Web Search"
-                  enabled={enableGoogleWeb}
-                  onChange={setEnableGoogleWeb}
-                />
-                <ToggleChip
-                  label="📺 YouTube"
-                  enabled={enableGoogleYoutube}
-                  onChange={setEnableGoogleYoutube}
-                />
-                <ToggleChip
-                  label="🖼️ Images"
-                  enabled={enableGoogleImages}
-                  onChange={setEnableGoogleImages}
-                />
-                <ToggleChip
-                  label="📰 News"
-                  enabled={enableGoogleNews}
-                  onChange={setEnableGoogleNews}
-                />
-                <ToggleChip
-                  label="🛒 Shopping"
-                  enabled={enableGoogleShopping}
-                  onChange={setEnableGoogleShopping}
-                />
-                <ToggleChip
-                  label="🛍️ Froogle"
-                  enabled={enableGoogleFroogle}
-                  onChange={setEnableGoogleFroogle}
-                />
+                <button
+                  onClick={() => setSelectedGoogleSource('web')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    selectedGoogleSource === 'web'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {selectedGoogleSource === 'web' ? '✓ ' : ''}🔍 Web Search
+                </button>
+                <button
+                  onClick={() => setSelectedGoogleSource('youtube')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    selectedGoogleSource === 'youtube'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {selectedGoogleSource === 'youtube' ? '✓ ' : ''}📺 YouTube
+                </button>
+                <button
+                  onClick={() => setSelectedGoogleSource('images')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    selectedGoogleSource === 'images'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {selectedGoogleSource === 'images' ? '✓ ' : ''}🖼️ Images
+                </button>
+                <button
+                  onClick={() => setSelectedGoogleSource('news')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    selectedGoogleSource === 'news'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {selectedGoogleSource === 'news' ? '✓ ' : ''}📰 News
+                </button>
+                <button
+                  onClick={() => setSelectedGoogleSource('shopping')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    selectedGoogleSource === 'shopping'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {selectedGoogleSource === 'shopping' ? '✓ ' : ''}🛒 Shopping
+                </button>
+                <button
+                  onClick={() => setSelectedGoogleSource('froogle')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    selectedGoogleSource === 'froogle'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {selectedGoogleSource === 'froogle' ? '✓ ' : ''}🛍️ Froogle
+                </button>
               </div>
             </div>
             )}
@@ -591,8 +871,11 @@ export default function Home() {
                     disabled={!enableAlphaVantage}
                     className={`w-full px-4 py-3 bg-gray-900/80 border border-blue-500/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${!enableAlphaVantage ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
+                    <option value="1year">{language === 'he' ? '1 שנה' : '1 year'}</option>
                     <option value="3year">{language === 'he' ? '3 שנים' : '3 years'}</option>
                     <option value="5year">{language === 'he' ? '5 שנים' : '5 years'}</option>
+                    <option value="10year">{language === 'he' ? '10 שנים' : '10 years'}</option>
+                    <option value="alltime">{language === 'he' ? 'כל הזמן (מ-1990)' : 'All Time (from 1990)'}</option>
                     </select>
                   </div>
                   </div>
@@ -838,20 +1121,69 @@ function GlobalInsights({ series }: { series: TrendSeries[] }) {
   const insights = analyzeAllSeries(series);
   
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Overall Trend Summary */}
       <div className="rounded-lg bg-gray-800/60 border border-purple-500/30 px-4 py-3 text-gray-200 text-lg">
         {insights.overallTrend}
       </div>
-      {insights.strongestRising && (
-        <div className="inline-flex items-center px-4 py-2 rounded-lg bg-green-900/30 border border-green-500/40 text-green-300">
-          📈 Strongest growth: <span className="font-semibold ml-1">{insights.strongestRising.label}</span>
+      
+      {/* Decline Periods */}
+      {insights.declinePeriods.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-red-300 font-semibold text-sm mb-2">📉 תקופות ירידה משמעותיות:</div>
+          {insights.declinePeriods.map((decline, index) => (
+            <div key={index} className="rounded-lg bg-red-900/20 border border-red-500/40 px-4 py-2 text-red-200 text-sm">
+              <span className="font-semibold">{decline.platform}:</span> בין {decline.startDate} ל-{decline.endDate} - ירידה של {decline.declinePercent}%
+            </div>
+          ))}
         </div>
       )}
-      {insights.strongestDeclining && (
-        <div className="inline-flex items-center px-4 py-2 rounded-lg bg-red-900/30 border border-red-500/40 text-red-300">
-          📉 Strongest decline: <span className="font-semibold ml-1">{insights.strongestDeclining.label}</span>
+      
+      {/* Recovery Periods */}
+      {insights.recoveryPeriods.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-green-300 font-semibold text-sm mb-2">📈 תקופות התאוששות:</div>
+          {insights.recoveryPeriods.map((recovery, index) => (
+            <div key={index} className="rounded-lg bg-green-900/20 border border-green-500/40 px-4 py-2 text-green-200 text-sm">
+              <span className="font-semibold">{recovery.platform}:</span> החל מ-{recovery.startDate} - עלייה של {recovery.recoveryPercent}%
+            </div>
+          ))}
         </div>
       )}
+      
+      {/* Recommendations */}
+      {insights.recommendations.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-yellow-300 font-semibold text-sm mb-2">💡 המלצות למוצר חדש:</div>
+          {insights.recommendations.map((rec, index) => (
+            <div key={index} className="rounded-lg bg-yellow-900/20 border border-yellow-500/40 px-4 py-3 text-yellow-200 text-sm leading-relaxed">
+              {rec}
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {insights.recommendations.length === 0 && insights.declinePeriods.length === 0 && insights.recoveryPeriods.length === 0 && (
+        <div className="rounded-lg bg-blue-900/20 border border-blue-500/40 px-4 py-2 text-blue-200 text-sm">
+          אין תקופות ירידה או התאוששות משמעותיות זוהו. המשך מעקב אחר המגמות.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Tooltip Component for trend chart
+function SimpleTooltip({ active, payload, label }: any) {
+  if (!active || !payload || payload.length === 0) return null;
+
+  return (
+    <div className="bg-gray-800 p-4 rounded-lg border border-purple-500 shadow-lg">
+      <p className="text-white font-semibold mb-2">{label}</p>
+      {payload.map((entry: any, idx: number) => (
+        <p key={idx} className="text-purple-300 text-sm mb-1">
+          <span className="font-medium">{entry.name}:</span> {entry.value}
+        </p>
+      ))}
     </div>
   );
 }
@@ -963,24 +1295,7 @@ function TrendCard({ series, formatTimestamp }: { series: TrendSeries; formatTim
                 tick={{ fill: '#9CA3AF', fontSize: 12 }}
                 tickLine={{ stroke: '#374151' }}
               />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1F2937',
-                  border: '1px solid #374151',
-                  borderRadius: '8px',
-                  color: '#F3F4F6'
-                }}
-                formatter={(value: any) => [value, '']}
-                labelFormatter={(label: string) => {
-                  // If label is already formatted with year, return as is
-                  // Otherwise, try to extract timestamp and format with year
-                  const dataPoint = chartData.find((d: any) => d.time === label);
-                  if (dataPoint && dataPoint.timestamp) {
-                    return formatTimestamp(dataPoint.timestamp);
-                  }
-                  return label;
-                }}
-              />
+              <Tooltip content={(props: any) => <SimpleTooltip {...props} />} />
               <Legend 
                 wrapperStyle={{ color: '#9CA3AF', fontSize: '12px' }}
                 iconType="line"

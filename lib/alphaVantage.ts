@@ -134,6 +134,9 @@ function getDateRange(range: AlphaFixedWindowRequest['range'], rangeStart?: stri
       case 'full':
         start = new Date('2000-01-01'); // Alpha Vantage typically has data from early 2000s
         break;
+      case 'alltime':
+        start = new Date('1990-01-01'); // Maximum historical data
+        break;
       default:
         start = new Date(end.getTime() - 5 * 365 * 24 * 60 * 60 * 1000);
     }
@@ -175,119 +178,164 @@ function getDataKey(functionName: string): string {
 }
 
 /**
- * Fetch time series data from Alpha Vantage
+ * Fetch time series data from Alpha Vantage with retry logic and rate limiting
  */
 async function fetchTimeSeries(
   symbol: string,
   interval: AlphaVantageInterval,
   apiKey: string,
-  ohlc: AlphaVantageOHLC = 'close'
+  ohlc: AlphaVantageOHLC = 'close',
+  retryCount: number = 0,
+  maxRetries: number = 2,
+  useCompact: boolean = false // Use 'compact' instead of 'full' for free tier DAILY endpoint
 ): Promise<Array<{ date: string; price: number }>> {
   const functionName = getTimeSeriesFunction(interval);
   const dataKey = getDataKey(functionName);
+
+  // For DAILY endpoint, 'full' is premium. Use 'compact' (last 100 data points) for free tier
+  // For WEEKLY and MONTHLY, 'full' is available in free tier
+  const outputSize = (interval === 'DAILY' && useCompact) ? 'compact' : 'full';
 
   const params = new URLSearchParams({
     function: functionName,
     symbol,
     apikey: apiKey,
-    outputsize: 'full' // Get full history
+    outputsize: outputSize
   });
 
-  const response = await fetch(`${ALPHA_VANTAGE_BASE_URL}?${params.toString()}`);
-  
-  if (!response.ok) {
-    throw new Error(`Alpha Vantage API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-
-  if (data['Error Message']) {
-    throw new Error(data['Error Message']);
-  }
-
-  if (data['Note']) {
-    throw new Error('Alpha Vantage API rate limit exceeded. Please try again later.');
-  }
-
-  // Try to find the time series data - Alpha Vantage sometimes uses different key names
-  let timeSeries = data[dataKey];
-  
-  // If not found, try alternative key names
-  if (!timeSeries) {
-    // Try common variations
-    const alternativeKeys = [
-      'Time Series (Daily)',
-      'Time Series Daily',
-      'Daily Time Series',
-      'Weekly Time Series',
-      'Weekly Adjusted Time Series',
-      'Monthly Time Series',
-      'Monthly Adjusted Time Series'
-    ];
+  try {
+    const response = await fetch(`${ALPHA_VANTAGE_BASE_URL}?${params.toString()}`);
     
-    for (const key of alternativeKeys) {
-      if (data[key]) {
-        timeSeries = data[key];
-        break;
+    if (!response.ok) {
+      throw new Error(`Alpha Vantage API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Check for rate limiting
+    if (data['Note']) {
+      const noteMessage = data['Note'];
+      if (noteMessage.includes('rate limit') || noteMessage.includes('Thank you for using Alpha Vantage')) {
+        // If we have retries left, wait and retry
+        if (retryCount < maxRetries) {
+          const waitTime = Math.pow(2, retryCount) * 2000; // Exponential backoff: 2s, 4s
+          console.log(`Rate limit hit for ${symbol}, waiting ${waitTime}ms before retry ${retryCount + 1}/${maxRetries}`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          return fetchTimeSeries(symbol, interval, apiKey, ohlc, retryCount + 1, maxRetries);
+        }
+        throw new Error('Alpha Vantage API rate limit exceeded. Please wait a moment and try again, or consider upgrading to a premium plan.');
+      }
+      throw new Error(noteMessage);
+    }
+
+    if (data['Error Message']) {
+      const errorMsg = data['Error Message'];
+      // Check if it's an interval availability issue
+      if (errorMsg.includes('not be available') && interval === 'WEEKLY' && retryCount === 0) {
+        // Wait before trying fallback to avoid rate limiting
+        console.log(`WEEKLY interval not available for ${symbol}, waiting 2.5s before trying MONTHLY instead (MONTHLY supports full history in free tier)`);
+        await new Promise(resolve => setTimeout(resolve, 2500));
+        // Try MONTHLY instead - it supports 'full' in free tier and gives more data points for long ranges
+        return fetchTimeSeries(symbol, 'MONTHLY', apiKey, ohlc, 0, maxRetries, false);
+      }
+      
+      // If MONTHLY also fails, try DAILY as last resort (but with compact)
+      if (errorMsg.includes('not be available') && interval === 'MONTHLY' && retryCount === 0) {
+        console.log(`MONTHLY interval not available for ${symbol}, waiting 2.5s before trying DAILY with compact mode`);
+        await new Promise(resolve => setTimeout(resolve, 2500));
+        return fetchTimeSeries(symbol, 'DAILY', apiKey, ohlc, 0, maxRetries, true);
+      }
+      
+      // Check if it's a premium feature error (outputsize=full for DAILY)
+      if (errorMsg.includes('premium feature') && errorMsg.includes('outputsize=full') && interval === 'DAILY' && !useCompact) {
+        console.log(`DAILY endpoint with outputsize=full is premium. Retrying with compact mode (last 100 data points)`);
+        // Retry with compact mode
+        return fetchTimeSeries(symbol, 'DAILY', apiKey, ohlc, retryCount, maxRetries, true);
+      }
+      throw new Error(errorMsg);
+    }
+
+    // Try to find the time series data - Alpha Vantage sometimes uses different key names
+    let timeSeries = data[dataKey];
+    
+    // If not found, try alternative key names
+    if (!timeSeries) {
+      // Try common variations
+      const alternativeKeys = [
+        'Time Series (Daily)',
+        'Time Series Daily',
+        'Daily Time Series',
+        'Weekly Time Series',
+        'Weekly Adjusted Time Series',
+        'Monthly Time Series',
+        'Monthly Adjusted Time Series'
+      ];
+      
+      for (const key of alternativeKeys) {
+        if (data[key]) {
+          timeSeries = data[key];
+          break;
+        }
       }
     }
+    
+    // If still not found, check all keys in response
+    if (!timeSeries) {
+      const allKeys = Object.keys(data);
+      console.log('Available keys in Alpha Vantage response:', allKeys);
+      
+      // Check for Information key (usually means symbol not found or no data)
+      if (data['Information']) {
+        const infoMessage = typeof data['Information'] === 'string' 
+          ? data['Information'] 
+          : 'Symbol not found or no historical data available';
+        throw new Error(`${symbol}: ${infoMessage}. This symbol may not be available in Alpha Vantage for ${interval} interval. Please try a different symbol like AAPL, MSFT, GOOGL, or NVDA.`);
+      }
+      
+      // Check if symbol might not be supported
+      if (data['Meta Data'] && data['Meta Data']['2. Symbol'] !== symbol) {
+        throw new Error(`Symbol ${symbol} not found or not supported by Alpha Vantage. Please try a different symbol.`);
+      }
+      
+      // If only Information key exists, it means no data
+      if (allKeys.length === 1 && allKeys[0] === 'Information') {
+        throw new Error(`Symbol ${symbol} is not available in Alpha Vantage or has no historical data for ${interval} interval. Please try a different symbol.`);
+      }
+      
+      throw new Error(`No time series data found for ${symbol} with interval ${interval}. Available keys: ${allKeys.join(', ')}. This symbol may not be available in Alpha Vantage or may not have historical data. Please try a different symbol like AAPL, MSFT, or GOOGL.`);
+    }
+
+    // Map OHLC to Alpha Vantage field names
+    const ohlcMap: Record<AlphaVantageOHLC, string> = {
+      'open': '1. open',
+      'high': '2. high',
+      'low': '3. low',
+      'close': '4. close'
+    };
+
+    const priceField = ohlcMap[ohlc];
+
+    // Convert to array of { date, price }
+    const points: Array<{ date: string; price: number }> = [];
+    for (const [date, values] of Object.entries(timeSeries)) {
+      const priceData = values as Record<string, string>;
+      const price = parseFloat(priceData[priceField]);
+      if (!isNaN(price)) {
+        points.push({ date, price });
+      }
+    }
+
+    // Sort by date ascending (numeric to avoid locale/format issues)
+    points.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    return points;
+  } catch (error) {
+    // Re-throw if it's already a formatted error
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(`Failed to fetch time series for ${symbol}: ${error}`);
   }
-  
-  // If still not found, check all keys in response
-  if (!timeSeries) {
-    const allKeys = Object.keys(data);
-    console.log('Available keys in Alpha Vantage response:', allKeys);
-    
-    // Check if there's an error message from Alpha Vantage
-    if (data['Error Message']) {
-      throw new Error(data['Error Message']);
-    }
-    
-    // Check for Information key (usually means symbol not found or no data)
-    if (data['Information']) {
-      const infoMessage = typeof data['Information'] === 'string' 
-        ? data['Information'] 
-        : 'Symbol not found or no historical data available';
-      throw new Error(`${symbol}: ${infoMessage}. This symbol may not be available in Alpha Vantage for ${interval} interval. Please try a different symbol like AAPL, MSFT, GOOGL, or NVDA.`);
-    }
-    
-    // Check if symbol might not be supported
-    if (data['Meta Data'] && data['Meta Data']['2. Symbol'] !== symbol) {
-      throw new Error(`Symbol ${symbol} not found or not supported by Alpha Vantage. Please try a different symbol.`);
-    }
-    
-    // If only Information key exists, it means no data
-    if (allKeys.length === 1 && allKeys[0] === 'Information') {
-      throw new Error(`Symbol ${symbol} is not available in Alpha Vantage or has no historical data for ${interval} interval. Please try a different symbol.`);
-    }
-    
-    throw new Error(`No time series data found for ${symbol} with interval ${interval}. Available keys: ${allKeys.join(', ')}. This symbol may not be available in Alpha Vantage or may not have historical data. Please try a different symbol like AAPL, MSFT, or GOOGL.`);
-  }
-
-  // Map OHLC to Alpha Vantage field names
-  const ohlcMap: Record<AlphaVantageOHLC, string> = {
-    'open': '1. open',
-    'high': '2. high',
-    'low': '3. low',
-    'close': '4. close'
-  };
-
-  const priceField = ohlcMap[ohlc];
-
-  // Convert to array of { date, price }
-  const points: Array<{ date: string; price: number }> = [];
-  for (const [date, values] of Object.entries(timeSeries)) {
-    const priceData = values as Record<string, string>;
-    const price = parseFloat(priceData[priceField]);
-    if (!isNaN(price)) {
-      points.push({ date, price });
-    }
-  }
-
-  // Sort by date ascending (numeric to avoid locale/format issues)
-  points.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-  return points;
 }
 
 /**
@@ -426,20 +474,71 @@ export async function fetchAlphaFixedWindow(
     const symbolData: Record<string, Array<{ date: string; price: number }>> = {};
     
     for (const symbol of request.symbols) {
-      const timeSeries = await fetchTimeSeries(symbol, request.interval, apiKey, ohlcParam);
-      
-      // Filter by date range, then sort ascending so prices[0]=period start, prices[last]=period end
-      const filtered = timeSeries
-        .filter(point => {
-          const pointDate = new Date(point.date);
-          return pointDate >= dateRange.start && pointDate <= dateRange.end;
-        })
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      try {
+        const timeSeries = await fetchTimeSeries(symbol, request.interval, apiKey, ohlcParam);
+        
+        // Filter by date range, then sort ascending so prices[0]=period start, prices[last]=period end
+        const filtered = timeSeries
+          .filter(point => {
+            const pointDate = new Date(point.date);
+            return pointDate >= dateRange.start && pointDate <= dateRange.end;
+          })
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      symbolData[symbol] = filtered;
+        symbolData[symbol] = filtered;
+      } catch (error) {
+        // If WEEKLY failed, try MONTHLY as fallback (supports full history in free tier)
+        if (request.interval === 'WEEKLY' && error instanceof Error && (error.message.includes('not be available') || error.message.includes('rate limit'))) {
+          console.log(`WEEKLY failed for ${symbol}, waiting 2.5s before trying MONTHLY fallback (MONTHLY supports full history)`);
+          // Wait before fallback to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 2500));
+          try {
+            // Try MONTHLY - supports 'full' in free tier and gives more data for long ranges
+            const timeSeries = await fetchTimeSeries(symbol, 'MONTHLY', apiKey, ohlcParam, 0, 2, false);
+            const filtered = timeSeries
+              .filter(point => {
+                const pointDate = new Date(point.date);
+                return pointDate >= dateRange.start && pointDate <= dateRange.end;
+              })
+              .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            symbolData[symbol] = filtered;
+          } catch (fallbackError) {
+            // If MONTHLY also failed, try DAILY as last resort
+            if (fallbackError instanceof Error && (fallbackError.message.includes('not be available') || fallbackError.message.includes('rate limit'))) {
+              console.log(`MONTHLY also failed for ${symbol}, trying DAILY with compact mode as last resort`);
+              await new Promise(resolve => setTimeout(resolve, 2500));
+              try {
+                const timeSeriesDaily = await fetchTimeSeries(symbol, 'DAILY', apiKey, ohlcParam, 0, 2, true);
+                const filtered = timeSeriesDaily
+                  .filter(point => {
+                    const pointDate = new Date(point.date);
+                    return pointDate >= dateRange.start && pointDate <= dateRange.end;
+                  })
+                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                symbolData[symbol] = filtered;
+              } catch (dailyError) {
+                if (dailyError instanceof Error && dailyError.message.includes('rate limit')) {
+                  throw new Error(`${symbol}: Rate limit exceeded. Please wait 60 seconds and try again. Alpha Vantage free tier allows 1 request per second and 25 requests per day.`);
+                }
+                throw new Error(`${symbol}: ${error.message}. Fallback to MONTHLY and DAILY also failed: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
+              }
+            } else {
+              if (fallbackError instanceof Error && fallbackError.message.includes('rate limit')) {
+                throw new Error(`${symbol}: Rate limit exceeded. Please wait 60 seconds and try again. Alpha Vantage free tier allows 1 request per second and 25 requests per day.`);
+              }
+              throw new Error(`${symbol}: ${error.message}. Fallback to MONTHLY also failed: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
+            }
+          }
+        } else {
+          throw error;
+        }
+      }
       
-      // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Rate limiting: Alpha Vantage free tier allows 1 request per second
+      // Wait 2 seconds between requests to be safe (including after fallback)
+      if (request.symbols.indexOf(symbol) < request.symbols.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
     }
 
     // Calculate metrics for each symbol
@@ -569,20 +668,71 @@ export async function fetchAlphaSlidingWindow(
     const symbolData: Record<string, Array<{ date: string; price: number }>> = {};
     
     for (const symbol of request.symbols) {
-      const timeSeries = await fetchTimeSeries(symbol, request.interval, apiKey, ohlcParam);
-      
-      // Filter by date range, then sort ascending (oldest first)
-      const filtered = timeSeries
-        .filter(point => {
-          const pointDate = new Date(point.date);
-          return pointDate >= dateRange.start && pointDate <= dateRange.end;
-        })
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      try {
+        const timeSeries = await fetchTimeSeries(symbol, request.interval, apiKey, ohlcParam);
+        
+        // Filter by date range, then sort ascending (oldest first)
+        const filtered = timeSeries
+          .filter(point => {
+            const pointDate = new Date(point.date);
+            return pointDate >= dateRange.start && pointDate <= dateRange.end;
+          })
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      symbolData[symbol] = filtered;
+        symbolData[symbol] = filtered;
+      } catch (error) {
+        // If WEEKLY failed, try MONTHLY as fallback (supports full history in free tier)
+        if (request.interval === 'WEEKLY' && error instanceof Error && (error.message.includes('not be available') || error.message.includes('rate limit'))) {
+          console.log(`WEEKLY failed for ${symbol}, waiting 2.5s before trying MONTHLY fallback (MONTHLY supports full history)`);
+          // Wait before fallback to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 2500));
+          try {
+            // Try MONTHLY - supports 'full' in free tier and gives more data for long ranges
+            const timeSeries = await fetchTimeSeries(symbol, 'MONTHLY', apiKey, ohlcParam, 0, 2, false);
+            const filtered = timeSeries
+              .filter(point => {
+                const pointDate = new Date(point.date);
+                return pointDate >= dateRange.start && pointDate <= dateRange.end;
+              })
+              .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            symbolData[symbol] = filtered;
+          } catch (fallbackError) {
+            // If MONTHLY also failed, try DAILY as last resort
+            if (fallbackError instanceof Error && (fallbackError.message.includes('not be available') || fallbackError.message.includes('rate limit'))) {
+              console.log(`MONTHLY also failed for ${symbol}, trying DAILY with compact mode as last resort`);
+              await new Promise(resolve => setTimeout(resolve, 2500));
+              try {
+                const timeSeriesDaily = await fetchTimeSeries(symbol, 'DAILY', apiKey, ohlcParam, 0, 2, true);
+                const filtered = timeSeriesDaily
+                  .filter(point => {
+                    const pointDate = new Date(point.date);
+                    return pointDate >= dateRange.start && pointDate <= dateRange.end;
+                  })
+                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                symbolData[symbol] = filtered;
+              } catch (dailyError) {
+                if (dailyError instanceof Error && dailyError.message.includes('rate limit')) {
+                  throw new Error(`${symbol}: Rate limit exceeded. Please wait 60 seconds and try again. Alpha Vantage free tier allows 1 request per second and 25 requests per day.`);
+                }
+                throw new Error(`${symbol}: ${error.message}. Fallback to MONTHLY and DAILY also failed: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
+              }
+            } else {
+              if (fallbackError instanceof Error && fallbackError.message.includes('rate limit')) {
+                throw new Error(`${symbol}: Rate limit exceeded. Please wait 60 seconds and try again. Alpha Vantage free tier allows 1 request per second and 25 requests per day.`);
+              }
+              throw new Error(`${symbol}: ${error.message}. Fallback to MONTHLY also failed: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
+            }
+          }
+        } else {
+          throw error;
+        }
+      }
       
-      // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Rate limiting: Alpha Vantage free tier allows 1 request per second
+      // Wait 2 seconds between requests to be safe (including after fallback)
+      if (request.symbols.indexOf(symbol) < request.symbols.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
     }
 
     // Calculate sliding windows

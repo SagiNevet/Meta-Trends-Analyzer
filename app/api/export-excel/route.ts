@@ -1,4 +1,5 @@
 // app/api/export-excel/route.ts - CSV export: semicolon delimiter (Excel IL), one section per product
+// Updated: Web and Shopping sources are now separated into distinct column groups
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { AnalyzeResponse } from '@/lib/types';
@@ -105,16 +106,36 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      // Sort columns: group by model name (without source), then by source order
-      const sourceOrder: Record<string, number> = { 'Web': 1, 'YouTube': 2, 'Shopping': 3, 'Images': 4, 'News': 5, 'Froogle': 6, 'Trends': 7 };
+      // Sort columns: group by model name, then separate Web sources from Shopping sources
+      const sourceOrder: Record<string, number> = { 
+        'Web': 1, 
+        'YouTube': 2, 
+        'Images': 3, 
+        'News': 4, 
+        'Shopping': 5,  // Shopping comes after all other sources
+        'Froogle': 6, 
+        'Trends': 7 
+      };
+      
       columns.sort((a, b) => {
         // Extract model name (before parentheses)
         const modelA = a.model.split(' (')[0].toLowerCase();
         const modelB = b.model.split(' (')[0].toLowerCase();
+        
         if (modelA !== modelB) {
           return modelA.localeCompare(modelB);
         }
-        // Same model: sort by source order
+        
+        // Same model: separate Web sources from Shopping
+        const isShoppingA = a.sourceLabel === 'Shopping' || a.sourceLabel === 'Froogle';
+        const isShoppingB = b.sourceLabel === 'Shopping' || b.sourceLabel === 'Froogle';
+        
+        // Web sources first, then Shopping
+        if (isShoppingA !== isShoppingB) {
+          return isShoppingA ? 1 : -1;
+        }
+        
+        // Both same type (Web or Shopping): sort by source order
         const sourceOrderA = sourceOrder[a.sourceLabel] || 99;
         const sourceOrderB = sourceOrder[b.sourceLabel] || 99;
         return sourceOrderA - sourceOrderB;
@@ -153,6 +174,8 @@ export async function POST(request: NextRequest) {
         ['Symbol', symbol],
         ['Period', results.alphaFixedWindow.range.start + ' - ' + results.alphaFixedWindow.range.end],
         ['Interval', results.alphaFixedWindow.interval],
+        ['Price (start)', m.priceFirst != null ? m.priceFirst.toFixed(4) : ''],
+        ['Price (end)', m.priceLast != null ? m.priceLast.toFixed(4) : ''],
         ['Total Return (%)', m.cumulativeReturn?.toFixed(2) ?? ''],
         ['Max Drawdown (%)', m.maxDrawdown?.toFixed(2) ?? ''],
         ['Volatility (StdDev)', m.stddev?.toFixed(4) ?? ''],
@@ -170,11 +193,12 @@ export async function POST(request: NextRequest) {
 
       const symbol = results.alphaSlidingWindow.symbols[0];
       const slidingRows: unknown[][] = [
-        ['Date (window mid)', 'Total Return (%)', 'Volatility (StdDev)'],
+        ['Date (window mid)', 'Price', 'Total Return (%)', 'Volatility (StdDev)'],
         ...results.alphaSlidingWindow.windows.map((w) => {
           const m = w.metrics[symbol] || {};
           return [
             w.midpoint,
+            m.price != null ? m.price.toFixed(4) : '',
             m.cumulativeReturn?.toFixed(2) ?? '',
             m.stddev?.toFixed(4) ?? '',
           ];

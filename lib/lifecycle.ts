@@ -1,6 +1,6 @@
 // lib/lifecycle.ts - Lifecycle analysis for trend series
 
-import { TrendSeries, LifecycleLabel } from './types';
+import { TrendSeries, LifecycleLabel, TimeSeriesPoint } from './types';
 
 /**
  * Calculate simple statistics for a time series
@@ -117,50 +117,190 @@ export function getLifecycleColor(label: LifecycleLabel): string {
 }
 
 /**
- * Analyze all series and return insights
+ * Find significant decline periods in a series
+ */
+function findDeclinePeriods(series: TrendSeries): Array<{ startDate: string; endDate: string; declinePercent: number }> {
+  if (series.points.length < 2) return [];
+  
+  const declinePeriods: Array<{ startDate: string; endDate: string; declinePercent: number }> = [];
+  let declineStart: TimeSeriesPoint | null = null;
+  let declineStartIndex = -1;
+  
+  for (let i = 1; i < series.points.length; i++) {
+    const prev = series.points[i - 1];
+    const curr = series.points[i];
+    const decline = ((prev.value - curr.value) / prev.value) * 100;
+    
+    // Start tracking decline if it's significant (>10%)
+    if (decline > 10 && declineStart === null) {
+      declineStart = prev;
+      declineStartIndex = i - 1;
+    }
+    
+    // End decline period if:
+    // 1. Decline stops (value increases or decline < 5%)
+    // 2. Or we've tracked a significant decline (>15%)
+    if (declineStart !== null) {
+      const totalDecline = ((declineStart.value - curr.value) / declineStart.value) * 100;
+      
+      if (decline < 5 || curr.value > prev.value || totalDecline > 15) {
+        if (totalDecline > 15) {
+          const startDate = new Date(declineStart.timestamp * 1000).toLocaleDateString('he-IL');
+          const endDate = new Date(curr.timestamp * 1000).toLocaleDateString('he-IL');
+          declinePeriods.push({
+            startDate,
+            endDate,
+            declinePercent: Math.round(totalDecline)
+          });
+        }
+        declineStart = null;
+        declineStartIndex = -1;
+      }
+    }
+  }
+  
+  // Check if there's an ongoing decline at the end
+  if (declineStart !== null && series.points.length > 0) {
+    const lastPoint = series.points[series.points.length - 1];
+    const totalDecline = ((declineStart.value - lastPoint.value) / declineStart.value) * 100;
+    if (totalDecline > 15) {
+      const startDate = new Date(declineStart.timestamp * 1000).toLocaleDateString('he-IL');
+      const endDate = new Date(lastPoint.timestamp * 1000).toLocaleDateString('he-IL');
+      declinePeriods.push({
+        startDate,
+        endDate,
+        declinePercent: Math.round(totalDecline)
+      });
+    }
+  }
+  
+  return declinePeriods;
+}
+
+/**
+ * Find recovery periods (when decline stops and starts rising)
+ */
+function findRecoveryPeriods(series: TrendSeries): Array<{ startDate: string; recoveryPercent: number }> {
+  if (series.points.length < 3) return [];
+  
+  const recoveryPeriods: Array<{ startDate: string; recoveryPercent: number }> = [];
+  
+  for (let i = 2; i < series.points.length; i++) {
+    const prev2 = series.points[i - 2];
+    const prev1 = series.points[i - 1];
+    const curr = series.points[i];
+    
+    // Check if there was a decline followed by recovery
+    const decline = ((prev2.value - prev1.value) / prev2.value) * 100;
+    const recovery = ((curr.value - prev1.value) / prev1.value) * 100;
+    
+    // Recovery: decline > 10% followed by increase > 5%
+    if (decline > 10 && recovery > 5) {
+      const startDate = new Date(curr.timestamp * 1000).toLocaleDateString('he-IL');
+      recoveryPeriods.push({
+        startDate,
+        recoveryPercent: Math.round(recovery)
+      });
+    }
+  }
+  
+  return recoveryPeriods;
+}
+
+/**
+ * Analyze all series and return product launch recommendations
  */
 export function analyzeAllSeries(series: TrendSeries[]): {
   strongestRising?: TrendSeries;
   strongestDeclining?: TrendSeries;
   overallTrend: string;
+  declinePeriods: Array<{ platform: string; startDate: string; endDate: string; declinePercent: number }>;
+  recoveryPeriods: Array<{ platform: string; startDate: string; recoveryPercent: number }>;
+  recommendations: string[];
 } {
   if (series.length === 0) {
-    return { overallTrend: 'No data available' };
+    return { 
+      overallTrend: 'אין נתונים זמינים',
+      declinePeriods: [],
+      recoveryPeriods: [],
+      recommendations: []
+    };
   }
 
-  let maxRisingSlope = -Infinity;
-  let maxDecliningSlope = Infinity;
-  let strongestRising: TrendSeries | undefined;
-  let strongestDeclining: TrendSeries | undefined;
-
+  // Find all decline and recovery periods across all platforms
+  const allDeclinePeriods: Array<{ platform: string; startDate: string; endDate: string; declinePercent: number }> = [];
+  const allRecoveryPeriods: Array<{ platform: string; startDate: string; recoveryPercent: number }> = [];
+  
   series.forEach((s) => {
     if (s.points.length === 0) return;
     
-    const stats = getStats(s);
+    const declines = findDeclinePeriods(s);
+    declines.forEach(decline => {
+      allDeclinePeriods.push({
+        platform: s.label,
+        ...decline
+      });
+    });
     
-    if (stats.recentSlope > maxRisingSlope) {
-      maxRisingSlope = stats.recentSlope;
-      strongestRising = s;
-    }
-    
-    if (stats.recentSlope < maxDecliningSlope) {
-      maxDecliningSlope = stats.recentSlope;
-      strongestDeclining = s;
-    }
+    const recoveries = findRecoveryPeriods(s);
+    recoveries.forEach(recovery => {
+      allRecoveryPeriods.push({
+        platform: s.label,
+        ...recovery
+      });
+    });
   });
 
-  let overallTrend = 'Mixed signals across platforms';
+  // Sort by decline percentage (most severe first)
+  allDeclinePeriods.sort((a, b) => b.declinePercent - a.declinePercent);
   
-  if (maxRisingSlope > 0 && Math.abs(maxRisingSlope) > Math.abs(maxDecliningSlope)) {
-    overallTrend = `Strongest growth on ${strongestRising?.label || 'unknown platform'}`;
-  } else if (maxDecliningSlope < 0 && Math.abs(maxDecliningSlope) > Math.abs(maxRisingSlope)) {
-    overallTrend = `Strongest decline on ${strongestDeclining?.label || 'unknown platform'}`;
+  // Generate recommendations
+  const recommendations: string[] = [];
+  
+  // Check for significant ongoing declines
+  const recentDeclines = allDeclinePeriods.filter(d => {
+    // Check if decline is recent (within last 30% of timeline)
+    const seriesWithDecline = series.find(s => s.label === d.platform);
+    if (!seriesWithDecline || seriesWithDecline.points.length === 0) return false;
+    const lastPoint = seriesWithDecline.points[seriesWithDecline.points.length - 1];
+    const declineEndDate = new Date(d.endDate);
+    const lastDate = new Date(lastPoint.timestamp * 1000);
+    const daysDiff = (lastDate.getTime() - declineEndDate.getTime()) / (1000 * 60 * 60 * 24);
+    return daysDiff < 30; // Recent decline (within 30 days)
+  });
+  
+  if (recentDeclines.length > 0) {
+    const mostSevere = recentDeclines[0];
+    recommendations.push(
+      `⚠️ ירידה משמעותית זוהתה: בין ${mostSevere.startDate} ל-${mostSevere.endDate} נרשמה ירידה של ${mostSevere.declinePercent}% ב-${mostSevere.platform}. זה הזמן לשקול להביא מוצר חדש לשוק כדי לעצור את הירידה.`
+    );
+  }
+  
+  // Check for recovery periods (good time to launch new product)
+  if (allRecoveryPeriods.length > 0) {
+    const latestRecovery = allRecoveryPeriods[allRecoveryPeriods.length - 1];
+    recommendations.push(
+      `📈 התאוששות זוהתה: החל מ-${latestRecovery.startDate} נרשמה עלייה של ${latestRecovery.recoveryPercent}% ב-${latestRecovery.platform}. זה יכול להיות זמן טוב להביא מוצר חדש כדי לחזק את המגמה החיובית.`
+    );
+  }
+  
+  // Overall trend analysis
+  let overallTrend = '';
+  if (recentDeclines.length > 0) {
+    overallTrend = `ירידה משמעותית זוהתה - מומלץ לשקול מוצר חדש`;
+  } else if (allRecoveryPeriods.length > 0) {
+    overallTrend = `מגמה חיובית - זמן טוב לחדשנות`;
+  } else {
+    overallTrend = `מגמות יציבות - המשך מעקב`;
   }
 
   return {
-    strongestRising,
-    strongestDeclining,
-    overallTrend
+    strongestRising: undefined,
+    strongestDeclining: undefined,
+    overallTrend,
+    declinePeriods: allDeclinePeriods.slice(0, 3), // Top 3 declines
+    recoveryPeriods: allRecoveryPeriods.slice(-3), // Last 3 recoveries
+    recommendations
   };
 }
 

@@ -129,72 +129,87 @@ export async function POST(request: NextRequest) {
       if (!process.env.SEARCHAPI_API_KEY) {
         warnings.push('All Google Trends features disabled: missing SEARCHAPI_API_KEY');
       } else {
+        // Execute Google Trends API calls sequentially with delays to avoid rate limiting
+        // SearchAPI.io free tier has rate limits, so we execute calls one by one
+        
         // Google Web Search
         if (body.enableGoogleWeb) {
-        promises.push(
-          fetchGoogleWebTrends(cleanedQueries, timeConfig.googleTime, region, category)
-            .catch((err) => {
-              warnings.push(`Google Web Search error: ${err.message}`);
-              return null;
-            })
-        );
-      }
+          try {
+            const result = await fetchGoogleWebTrends(cleanedQueries, timeConfig.googleTime, region, category);
+            promises.push(Promise.resolve(result));
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            warnings.push(`Google Web Search error: ${errorMessage}`);
+            promises.push(Promise.resolve(null));
+          }
+          await new Promise(resolve => setTimeout(resolve, 1500)); // Delay before next call
+        }
 
-      // Google YouTube Search
-      if (body.enableGoogleYoutube) {
-        promises.push(
-          fetchGoogleYouTubeTrends(cleanedQueries, timeConfig.googleTime, region, category)
-            .catch((err) => {
-              warnings.push(`YouTube Search error: ${err.message}`);
-              return null;
-            })
-        );
-      }
+        // Google YouTube Search
+        if (body.enableGoogleYoutube) {
+          try {
+            const result = await fetchGoogleYouTubeTrends(cleanedQueries, timeConfig.googleTime, region, category);
+            promises.push(Promise.resolve(result));
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            warnings.push(`YouTube Search error: ${errorMessage}`);
+            promises.push(Promise.resolve(null));
+          }
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
 
-      // Google Images
-      if (body.enableGoogleImages) {
-        promises.push(
-          fetchGoogleImagesTrends(cleanedQueries, timeConfig.googleTime, region, category)
-            .catch((err) => {
-              warnings.push(`Google Images error: ${err.message}`);
-              return null;
-            })
-        );
-      }
+        // Google Images
+        if (body.enableGoogleImages) {
+          try {
+            const result = await fetchGoogleImagesTrends(cleanedQueries, timeConfig.googleTime, region, category);
+            promises.push(Promise.resolve(result));
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            warnings.push(`Google Images error: ${errorMessage}`);
+            promises.push(Promise.resolve(null));
+          }
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
 
-      // Google News
-      if (body.enableGoogleNews) {
-        promises.push(
-          fetchGoogleNewsTrends(cleanedQueries, timeConfig.googleTime, region, category)
-            .catch((err) => {
-              warnings.push(`Google News error: ${err.message}`);
-              return null;
-            })
-        );
-      }
+        // Google News
+        if (body.enableGoogleNews) {
+          try {
+            const result = await fetchGoogleNewsTrends(cleanedQueries, timeConfig.googleTime, region, category);
+            promises.push(Promise.resolve(result));
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            warnings.push(`Google News error: ${errorMessage}`);
+            promises.push(Promise.resolve(null));
+          }
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
 
-      // Google Shopping
-      if (body.enableGoogleShopping) {
-        promises.push(
-          fetchGoogleShoppingTrends(cleanedQueries, timeConfig.googleTime, region, category)
-            .catch((err) => {
-              warnings.push(`Google Shopping error: ${err.message}`);
-              return null;
-            })
-        );
-      }
+        // Google Shopping
+        if (body.enableGoogleShopping) {
+          try {
+            const result = await fetchGoogleShoppingTrends(cleanedQueries, timeConfig.googleTime, region, category);
+            promises.push(Promise.resolve(result));
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            warnings.push(`Google Shopping error: ${errorMessage}`);
+            promises.push(Promise.resolve(null));
+          }
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
 
-      // Google Froogle
-      if (body.enableGoogleFroogle) {
-        promises.push(
-          fetchGoogleFroogleTrends(cleanedQueries, timeConfig.googleTime, region, category)
-            .catch((err) => {
-              warnings.push(`Google Froogle error: ${err.message}`);
-              return null;
-            })
-        );
+        // Google Froogle
+        if (body.enableGoogleFroogle) {
+          try {
+            const result = await fetchGoogleFroogleTrends(cleanedQueries, timeConfig.googleTime, region, category);
+            promises.push(Promise.resolve(result));
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            warnings.push(`Google Froogle error: ${errorMessage}`);
+            promises.push(Promise.resolve(null));
+          }
+          // No delay after last call
+        }
       }
-    }
     }
 
     // Alpha Vantage processing (only if enabled)
@@ -223,7 +238,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Wait for all Google Trends API calls
+    // Wait for all promises (they're already resolved from sequential execution above)
     const results = await Promise.all(promises);
     
     // Filter out null results

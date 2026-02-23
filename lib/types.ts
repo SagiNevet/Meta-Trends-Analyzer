@@ -1,7 +1,7 @@
 // lib/types.ts - Type definitions for the application
 
 // Alpha Vantage Types
-export type AlphaVantageRange = '1year' | '3year' | '5year' | '10year' | 'full' | 'custom';
+export type AlphaVantageRange = '1year' | '3year' | '5year' | '10year' | 'full' | 'alltime' | 'custom';
 export type AlphaVantageInterval = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 export type AlphaVantageOHLC = 'open' | 'high' | 'low' | 'close';
 export type AlphaVantageCalculation = 

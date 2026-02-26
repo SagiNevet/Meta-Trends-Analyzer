@@ -86,10 +86,10 @@ export async function fetchGoogleTrends(
     // Retry logic for rate limiting
     let retryCount = 0;
     const maxRetries = 3;
-    let response: Response;
-    
+    let data: GoogleTrendsResponse | undefined;
+
     while (retryCount <= maxRetries) {
-      response = await fetch(`${SEARCHAPI_BASE_URL}?${params.toString()}`, {
+      const response = await fetch(`${SEARCHAPI_BASE_URL}?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -113,10 +113,13 @@ export async function fetchGoogleTrends(
         throw new Error(`Google Trends API error: ${response.status} ${response.statusText}`);
       }
 
+      data = await response.json();
       break; // Success, exit retry loop
     }
 
-    const data: GoogleTrendsResponse = await response.json();
+    if (!data) {
+      throw new Error('Google Trends API: max retries exceeded');
+    }
 
     if (data.error) {
       throw new Error(data.error);

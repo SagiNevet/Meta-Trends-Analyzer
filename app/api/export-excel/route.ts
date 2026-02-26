@@ -48,9 +48,10 @@ export async function POST(request: NextRequest) {
     sections.push(rowToCsv(['Meta Trends Analysis', dateStr]));
     sections.push(emptyRows(2));
 
-    // ========== Summary: Date + one column per model per source (for comparison) ==========
+    // ========== GOOGLE TRENDS (first - above Alpha Vantage) ==========
     if (results.series && results.series.length > 0) {
-      sections.push(rowToCsv(['========== Summary: all models side by side ==========']));
+      sections.push(rowToCsv(['========== Google Trends - Summary (all models side by side) ==========']));
+      sections.push(rowToCsv(['Date; one column per product and source (Web, YouTube, Shopping, etc.)']));
       sections.push(emptyRows(1));
 
       type Col = { seriesIdx: number; model: string; sourceLabel: string; getValue: (ts: number) => number | '' };
@@ -160,11 +161,16 @@ export async function POST(request: NextRequest) {
         sections.push(rowToCsv(row));
       }
       sections.push(emptyRows(2));
+    } else {
+      // Google Trends section placeholder when no series data (e.g. Alpha Vantage only run)
+      sections.push(rowToCsv(['========== Google Trends - Summary (all models side by side) ==========']));
+      sections.push(rowToCsv(['No Google Trends data in this export (Google Trends was not used for this analysis).']));
+      sections.push(emptyRows(2));
     }
 
-    // ========== Stock - Fixed Window ==========
+    // ========== Alpha Vantage - Summary & Stock Price ==========
     if (results.alphaFixedWindow) {
-      sections.push(rowToCsv(['========== Stock - Fixed Window ==========']));
+      sections.push(rowToCsv(['========== Alpha Vantage - Summary & Stock Price ==========']));
       sections.push(emptyRows(1));
 
       const symbol = results.alphaFixedWindow.symbols[0];
@@ -172,13 +178,13 @@ export async function POST(request: NextRequest) {
       const stockRows: unknown[][] = [
         ['Metric', 'Value'],
         ['Symbol', symbol],
-        ['Period', results.alphaFixedWindow.range.start + ' - ' + results.alphaFixedWindow.range.end],
-        ['Interval', results.alphaFixedWindow.interval],
-        ['Price (start)', m.priceFirst != null ? m.priceFirst.toFixed(4) : ''],
-        ['Price (end)', m.priceLast != null ? m.priceLast.toFixed(4) : ''],
+        ['Analysis Period', results.alphaFixedWindow.range.start + ' - ' + results.alphaFixedWindow.range.end],
+        ['Data Interval', results.alphaFixedWindow.interval],
+        ['Stock Price (Start of Period)', m.priceFirst != null ? m.priceFirst.toFixed(4) : ''],
+        ['Stock Price (End of Period)', m.priceLast != null ? m.priceLast.toFixed(4) : ''],
         ['Total Return (%)', m.cumulativeReturn?.toFixed(2) ?? ''],
         ['Max Drawdown (%)', m.maxDrawdown?.toFixed(2) ?? ''],
-        ['Volatility (StdDev)', m.stddev?.toFixed(4) ?? ''],
+        ['Volatility (Annualized StdDev)', m.stddev?.toFixed(4) ?? ''],
         ['Mean Return', m.mean?.toFixed(4) ?? ''],
         ['Variance', m.variance?.toFixed(4) ?? ''],
       ];
@@ -186,21 +192,38 @@ export async function POST(request: NextRequest) {
       sections.push(emptyRows(2));
     }
 
-    // ========== Stock - Sliding Window ==========
+    // ========== Alpha Vantage - Stock Price History (by date) ==========
+    if (results.alphaFixedWindow?.timeSeries && results.alphaFixedWindow.symbols?.[0]) {
+      const symbol = results.alphaFixedWindow.symbols[0];
+      const points = results.alphaFixedWindow.timeSeries[symbol];
+      if (points && points.length > 0) {
+        sections.push(rowToCsv(['========== Alpha Vantage - Stock Price History (Weekly/Daily) ==========']));
+        sections.push(emptyRows(1));
+        const sorted = [...points].sort((a, b) => a.date.localeCompare(b.date));
+        const historyRows: unknown[][] = [
+          ['Date', 'Stock Price (Close)'],
+          ...sorted.map((p) => [p.date, p.price.toFixed(4)]),
+        ];
+        sections.push(rowsToCsv(historyRows));
+        sections.push(emptyRows(2));
+      }
+    }
+
+    // ========== Alpha Vantage - Sliding Window (per window) ==========
     if (results.alphaSlidingWindow && results.alphaSlidingWindow.windows.length > 0) {
-      sections.push(rowToCsv(['========== Stock - Sliding Window ==========']));
+      sections.push(rowToCsv(['========== Alpha Vantage - Sliding Window (per period) ==========']));
       sections.push(emptyRows(1));
 
       const symbol = results.alphaSlidingWindow.symbols[0];
       const slidingRows: unknown[][] = [
-        ['Date (window mid)', 'Price', 'Total Return (%)', 'Volatility (StdDev)'],
+        ['Window End Date', 'Stock Price (Close)', 'Cumulative Return (%)', 'Volatility (StdDev)'],
         ...results.alphaSlidingWindow.windows.map((w) => {
-          const m = w.metrics[symbol] || {};
+          const wm = w.metrics[symbol] || {};
           return [
-            w.midpoint,
-            m.price != null ? m.price.toFixed(4) : '',
-            m.cumulativeReturn?.toFixed(2) ?? '',
-            m.stddev?.toFixed(4) ?? '',
+            w.end,
+            wm.price != null ? wm.price.toFixed(4) : '',
+            wm.cumulativeReturn?.toFixed(2) ?? '',
+            wm.stddev?.toFixed(4) ?? '',
           ];
         }),
       ];

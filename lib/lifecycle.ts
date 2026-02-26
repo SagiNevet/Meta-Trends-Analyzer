@@ -287,11 +287,11 @@ export function analyzeAllSeries(series: TrendSeries[]): {
   // Overall trend analysis
   let overallTrend = '';
   if (recentDeclines.length > 0) {
-    overallTrend = `ירידה משמעותית זוהתה - מומלץ לשקול מוצר חדש`;
+    overallTrend = `ירידה משמעותית זוהתה, מומלץ לשקול מוצר חדש`;
   } else if (allRecoveryPeriods.length > 0) {
-    overallTrend = `מגמה חיובית - זמן טוב לחדשנות`;
+    overallTrend = `מגמה חיובית, זמן טוב לחדשנות`;
   } else {
-    overallTrend = `מגמות יציבות - המשך מעקב`;
+    overallTrend = `מגמות יציבות, המשך מעקב`;
   }
 
   return {

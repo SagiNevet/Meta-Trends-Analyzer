@@ -142,22 +142,28 @@ function getDateRange(range: AlphaFixedWindowRequest['range'], rangeStart?: stri
     }
   }
 
+  // Normalize to start-of-day and end-of-day so filtering includes full days
+  // and "today" is included when API returns latest trading day
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+
   return { start, end };
 }
 
 /**
- * Get Alpha Vantage function name based on interval
+ * Use ADJUSTED endpoints so stock splits and dividends don't create fake "drops" in the chart.
+ * E.g. Apple 4:1 split in Aug 2020 would show as a 75% drop with unadjusted data.
  */
 function getTimeSeriesFunction(interval: AlphaVantageInterval): string {
   switch (interval) {
     case 'DAILY':
-      return 'TIME_SERIES_DAILY';
+      return 'TIME_SERIES_DAILY_ADJUSTED';
     case 'WEEKLY':
-      return 'TIME_SERIES_WEEKLY';
+      return 'TIME_SERIES_WEEKLY_ADJUSTED';
     case 'MONTHLY':
-      return 'TIME_SERIES_MONTHLY';
+      return 'TIME_SERIES_MONTHLY_ADJUSTED';
     default:
-      return 'TIME_SERIES_DAILY';
+      return 'TIME_SERIES_DAILY_ADJUSTED';
   }
 }
 
@@ -166,10 +172,16 @@ function getTimeSeriesFunction(interval: AlphaVantageInterval): string {
  */
 function getDataKey(functionName: string): string {
   switch (functionName) {
+    case 'TIME_SERIES_DAILY_ADJUSTED':
+      return 'Time Series (Daily)';
     case 'TIME_SERIES_DAILY':
       return 'Time Series (Daily)';
+    case 'TIME_SERIES_WEEKLY_ADJUSTED':
+      return 'Weekly Adjusted Time Series';
     case 'TIME_SERIES_WEEKLY':
       return 'Weekly Time Series';
+    case 'TIME_SERIES_MONTHLY_ADJUSTED':
+      return 'Monthly Adjusted Time Series';
     case 'TIME_SERIES_MONTHLY':
       return 'Monthly Time Series';
     default:
@@ -305,15 +317,15 @@ async function fetchTimeSeries(
       throw new Error(`No time series data found for ${symbol} with interval ${interval}. Available keys: ${allKeys.join(', ')}. This symbol may not be available in Alpha Vantage or may not have historical data. Please try a different symbol like AAPL, MSFT, or GOOGL.`);
     }
 
-    // Map OHLC to Alpha Vantage field names
+    // Adjusted endpoints include "5. adjusted close" – always use it when available so stock splits/dividends don't create fake drops (e.g. AAPL 4:1 split Aug 2020)
+    const isAdjusted = functionName.includes('ADJUSTED');
     const ohlcMap: Record<AlphaVantageOHLC, string> = {
       'open': '1. open',
       'high': '2. high',
       'low': '3. low',
       'close': '4. close'
     };
-
-    const priceField = ohlcMap[ohlc];
+    const priceField = isAdjusted ? '5. adjusted close' : ohlcMap[ohlc];
 
     // Convert to array of { date, price }
     const points: Array<{ date: string; price: number }> = [];
@@ -629,6 +641,12 @@ export async function fetchAlphaFixedWindow(
           }
         }
       }
+    }
+
+    // Expose raw time series so the chart can show one point per week (not per window)
+    responseData.timeSeries = {};
+    for (const symbol of request.symbols) {
+      responseData.timeSeries[symbol] = symbolData[symbol].map(p => ({ date: p.date, price: p.price }));
     }
 
     return responseData;

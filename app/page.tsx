@@ -26,13 +26,28 @@ function formatDisplayDate(dateStr: string): string {
   return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+/** Symbol to company name for stock quote display */
+const SYMBOL_COMPANY_NAMES: Record<string, string> = {
+  AAPL: 'Apple', MSFT: 'Microsoft', GOOGL: 'Alphabet', NVDA: 'NVIDIA', META: 'Meta',
+  AMZN: 'Amazon', TSLA: 'Tesla', NFLX: 'Netflix', AMD: 'AMD', INTC: 'Intel', DIS: 'Disney'
+};
+
 // Translations
 const translations = {
   he: {
     title: 'Meta Trends Analyzer',
     subtitle: 'ניתוח מגמות מתקדם',
+    enterQueries: 'הזן מוצרים לניתוח',
+    pressEnterAddMore: 'Enter או לחיצה על + להוספת מוצר',
+    checkIphones: 'בדיקת אייפונים',
+    checkRTX: 'בדיקת RTX',
+    placeholderQuery: 'למשל iPhone 16',
+    queryLabel: 'מוצר',
+    removeQuery: 'הסר מוצר',
+    addQuery: 'הוסף מוצר',
+    advancedOptions: 'אפשרויות מתקדמות',
     alphaTitle: 'ניתוח תזמון מוצר חדש - Alpha Vantage',
-    alphaDesc: 'זיהוי מתי חברה צריכה להביא מוצר חדש לשוק על בסיס מגמות במחיר המניה. המחיר משקף את הביצועים - ירידות משמעותיות מצביעות על צורך במוצר חדש.',
+    alphaDesc: 'ניתוח מגמות מחיר המניה להערכת תזמון השקת מוצר חדש.',
     selectCompany: 'בחר חברה לניתוח',
     selectPeriod: 'תקופת ניתוח',
     analyze: '🚀 ניתוח מגמות',
@@ -41,6 +56,20 @@ const translations = {
     downloadDesc: 'הקובץ כולל את כל הנתונים לניתוח ב-ChatGPT',
     language: 'English',
     dataSources: 'מקורות נתונים',
+    region: 'אזור',
+    timeRange: 'תקופת זמן',
+    timeRange7d: '7 ימים אחרונים',
+    timeRange30d: '30 יום אחרונים',
+    timeRange12m: '12 חודשים אחרונים',
+    timeRange5y: '5 שנים אחרונות',
+    timeRangeAll: 'כל התקופה',
+    googleTrendsSource: 'מקור Google Trends (בחר אחד)',
+    sourceWeb: 'חיפוש ברשת',
+    sourceYoutube: 'YouTube',
+    sourceImages: 'תמונות',
+    sourceNews: 'חדשות',
+    sourceShopping: 'קניות',
+    sourceFroogle: 'Froogle',
     useGoogleTrends: 'השתמש ב-Google Trends',
     useAlphaVantage: 'השתמש ב-Alpha Vantage',
     warnings: 'אזהרות',
@@ -49,8 +78,17 @@ const translations = {
   en: {
     title: 'Meta Trends Analyzer',
     subtitle: 'Advanced trend analysis',
+    enterQueries: 'Enter queries to analyze',
+    pressEnterAddMore: 'Press ENTER or click + to add more',
+    checkIphones: 'Check Iphones',
+    checkRTX: 'Check RTX',
+    placeholderQuery: 'e.g., iPhone 16',
+    queryLabel: 'Query',
+    removeQuery: 'Remove query',
+    addQuery: 'Add another query',
+    advancedOptions: 'Advanced Options',
     alphaTitle: 'Product Launch Timing Analysis - Alpha Vantage',
-    alphaDesc: 'Identify when a company needs to launch a new product based on stock price trends. Price reflects performance - significant declines indicate need for a new product.',
+    alphaDesc: 'Stock price trend analysis for product launch timing.',
     selectCompany: 'Select Company for Analysis',
     selectPeriod: 'Analysis Period',
     analyze: '🚀 Analyze Trends',
@@ -59,6 +97,20 @@ const translations = {
     downloadDesc: 'File includes all data for ChatGPT analysis',
     language: 'עברית',
     dataSources: 'Data Sources',
+    region: 'Region',
+    timeRange: 'Time Range',
+    timeRange7d: 'Last 7 days',
+    timeRange30d: 'Last 30 days',
+    timeRange12m: 'Last 12 months',
+    timeRange5y: 'Last 5 years',
+    timeRangeAll: 'All time',
+    googleTrendsSource: 'Google Trends Data Source (Select One)',
+    sourceWeb: 'Web Search',
+    sourceYoutube: 'YouTube',
+    sourceImages: 'Images',
+    sourceNews: 'News',
+    sourceShopping: 'Shopping',
+    sourceFroogle: 'Froogle',
     useGoogleTrends: 'Use Google Trends',
     useAlphaVantage: 'Use Alpha Vantage',
     warnings: 'Warnings',
@@ -95,57 +147,57 @@ const GOOGLE_CATEGORIES = [
   { value: '67', label: 'Travel', id: 'travel' }
 ];
 
-// Extended regions list
-const REGIONS = [
-  { value: 'WORLDWIDE', label: '🌍 Worldwide' },
-  { value: 'US', label: '🇺🇸 United States' },
-  { value: 'GB', label: '🇬🇧 United Kingdom' },
-  { value: 'CA', label: '🇨🇦 Canada' },
-  { value: 'AU', label: '🇦🇺 Australia' },
-  { value: 'DE', label: '🇩🇪 Germany' },
-  { value: 'FR', label: '🇫🇷 France' },
-  { value: 'IT', label: '🇮🇹 Italy' },
-  { value: 'ES', label: '🇪🇸 Spain' },
-  { value: 'NL', label: '🇳🇱 Netherlands' },
-  { value: 'BE', label: '🇧🇪 Belgium' },
-  { value: 'CH', label: '🇨🇭 Switzerland' },
-  { value: 'AT', label: '🇦🇹 Austria' },
-  { value: 'SE', label: '🇸🇪 Sweden' },
-  { value: 'NO', label: '🇳🇴 Norway' },
-  { value: 'DK', label: '🇩🇰 Denmark' },
-  { value: 'FI', label: '🇫🇮 Finland' },
-  { value: 'PL', label: '🇵🇱 Poland' },
-  { value: 'CZ', label: '🇨🇿 Czech Republic' },
-  { value: 'GR', label: '🇬🇷 Greece' },
-  { value: 'PT', label: '🇵🇹 Portugal' },
-  { value: 'IE', label: '🇮🇪 Ireland' },
-  { value: 'JP', label: '🇯🇵 Japan' },
-  { value: 'KR', label: '🇰🇷 South Korea' },
-  { value: 'CN', label: '🇨🇳 China' },
-  { value: 'IN', label: '🇮🇳 India' },
-  { value: 'SG', label: '🇸🇬 Singapore' },
-  { value: 'MY', label: '🇲🇾 Malaysia' },
-  { value: 'TH', label: '🇹🇭 Thailand' },
-  { value: 'PH', label: '🇵🇭 Philippines' },
-  { value: 'ID', label: '🇮🇩 Indonesia' },
-  { value: 'VN', label: '🇻🇳 Vietnam' },
-  { value: 'BR', label: '🇧🇷 Brazil' },
-  { value: 'MX', label: '🇲🇽 Mexico' },
-  { value: 'AR', label: '🇦🇷 Argentina' },
-  { value: 'CL', label: '🇨🇱 Chile' },
-  { value: 'CO', label: '🇨🇴 Colombia' },
-  { value: 'PE', label: '🇵🇪 Peru' },
-  { value: 'ZA', label: '🇿🇦 South Africa' },
-  { value: 'EG', label: '🇪🇬 Egypt' },
-  { value: 'NG', label: '🇳🇬 Nigeria' },
-  { value: 'KE', label: '🇰🇪 Kenya' },
-  { value: 'IL', label: '🇮🇱 Israel' },
-  { value: 'AE', label: '🇦🇪 UAE' },
-  { value: 'SA', label: '🇸🇦 Saudi Arabia' },
-  { value: 'TR', label: '🇹🇷 Turkey' },
-  { value: 'RU', label: '🇷🇺 Russia' },
-  { value: 'UA', label: '🇺🇦 Ukraine' },
-  { value: 'NZ', label: '🇳🇿 New Zealand' }
+// Extended regions list (label = English, labelHe = Hebrew for RTL)
+const REGIONS: { value: string; label: string; labelHe: string }[] = [
+  { value: 'WORLDWIDE', label: '🌍 Worldwide', labelHe: '🌍 עולמי' },
+  { value: 'US', label: '🇺🇸 United States', labelHe: '🇺🇸 ארצות הברית' },
+  { value: 'GB', label: '🇬🇧 United Kingdom', labelHe: '🇬🇧 בריטניה' },
+  { value: 'CA', label: '🇨🇦 Canada', labelHe: '🇨🇦 קנדה' },
+  { value: 'AU', label: '🇦🇺 Australia', labelHe: '🇦🇺 אוסטרליה' },
+  { value: 'DE', label: '🇩🇪 Germany', labelHe: '🇩🇪 גרמניה' },
+  { value: 'FR', label: '🇫🇷 France', labelHe: '🇫🇷 צרפת' },
+  { value: 'IT', label: '🇮🇹 Italy', labelHe: '🇮🇹 איטליה' },
+  { value: 'ES', label: '🇪🇸 Spain', labelHe: '🇪🇸 ספרד' },
+  { value: 'NL', label: '🇳🇱 Netherlands', labelHe: '🇳🇱 הולנד' },
+  { value: 'BE', label: '🇧🇪 Belgium', labelHe: '🇧🇪 בלגיה' },
+  { value: 'CH', label: '🇨🇭 Switzerland', labelHe: '🇨🇭 שווייץ' },
+  { value: 'AT', label: '🇦🇹 Austria', labelHe: '🇦🇹 אוסטריה' },
+  { value: 'SE', label: '🇸🇪 Sweden', labelHe: '🇸🇪 שוודיה' },
+  { value: 'NO', label: '🇳🇴 Norway', labelHe: '🇳🇴 נורווגיה' },
+  { value: 'DK', label: '🇩🇰 Denmark', labelHe: '🇩🇰 דנמרק' },
+  { value: 'FI', label: '🇫🇮 Finland', labelHe: '🇫🇮 פינלנד' },
+  { value: 'PL', label: '🇵🇱 Poland', labelHe: '🇵🇱 פולין' },
+  { value: 'CZ', label: '🇨🇿 Czech Republic', labelHe: '🇨🇿 צ\'כיה' },
+  { value: 'GR', label: '🇬🇷 Greece', labelHe: '🇬🇷 יוון' },
+  { value: 'PT', label: '🇵🇹 Portugal', labelHe: '🇵🇹 פורטוגל' },
+  { value: 'IE', label: '🇮🇪 Ireland', labelHe: '🇮🇪 אירלנד' },
+  { value: 'JP', label: '🇯🇵 Japan', labelHe: '🇯🇵 יפן' },
+  { value: 'KR', label: '🇰🇷 South Korea', labelHe: '🇰🇷 דרום קוריאה' },
+  { value: 'CN', label: '🇨🇳 China', labelHe: '🇨🇳 סין' },
+  { value: 'IN', label: '🇮🇳 India', labelHe: '🇮🇳 הודו' },
+  { value: 'SG', label: '🇸🇬 Singapore', labelHe: '🇸🇬 סינגפור' },
+  { value: 'MY', label: '🇲🇾 Malaysia', labelHe: '🇲🇾 מלזיה' },
+  { value: 'TH', label: '🇹🇭 Thailand', labelHe: '🇹🇭 תאילנד' },
+  { value: 'PH', label: '🇵🇭 Philippines', labelHe: '🇵🇭 פיליפינים' },
+  { value: 'ID', label: '🇮🇩 Indonesia', labelHe: '🇮🇩 אינדונזיה' },
+  { value: 'VN', label: '🇻🇳 Vietnam', labelHe: '🇻🇳 וייטנאם' },
+  { value: 'BR', label: '🇧🇷 Brazil', labelHe: '🇧🇷 ברזיל' },
+  { value: 'MX', label: '🇲🇽 Mexico', labelHe: '🇲🇽 מקסיקו' },
+  { value: 'AR', label: '🇦🇷 Argentina', labelHe: '🇦🇷 ארגנטינה' },
+  { value: 'CL', label: '🇨🇱 Chile', labelHe: '🇨🇱 צ\'ילה' },
+  { value: 'CO', label: '🇨🇴 Colombia', labelHe: '🇨🇴 קולומביה' },
+  { value: 'PE', label: '🇵🇪 Peru', labelHe: '🇵🇪 פרו' },
+  { value: 'ZA', label: '🇿🇦 South Africa', labelHe: '🇿🇦 דרום אפריקה' },
+  { value: 'EG', label: '🇪🇬 Egypt', labelHe: '🇪🇬 מצרים' },
+  { value: 'NG', label: '🇳🇬 Nigeria', labelHe: '🇳🇬 ניגריה' },
+  { value: 'KE', label: '🇰🇪 Kenya', labelHe: '🇰🇪 קניה' },
+  { value: 'IL', label: '🇮🇱 Israel', labelHe: '🇮🇱 ישראל' },
+  { value: 'AE', label: '🇦🇪 UAE', labelHe: '🇦🇪 איחוד האמירויות' },
+  { value: 'SA', label: '🇸🇦 Saudi Arabia', labelHe: '🇸🇦 ערב הסעודית' },
+  { value: 'TR', label: '🇹🇷 Turkey', labelHe: '🇹🇷 טורקיה' },
+  { value: 'RU', label: '🇷🇺 Russia', labelHe: '🇷🇺 רוסיה' },
+  { value: 'UA', label: '🇺🇦 Ukraine', labelHe: '🇺🇦 אוקראינה' },
+  { value: 'NZ', label: '🇳🇿 New Zealand', labelHe: '🇳🇿 ניו זילנד' }
 ];
 
 // Colors for different queries in charts
@@ -191,6 +243,13 @@ export default function Home() {
   
   // Language state
   const [language, setLanguage] = useState<'he' | 'en'>('he');
+
+  // RTL/LTR and lang: Hebrew = right-to-left, English = left-to-right
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute('dir', language === 'he' ? 'rtl' : 'ltr');
+    root.setAttribute('lang', language === 'he' ? 'he' : 'en');
+  }, [language]);
   
   // Handle symbol selection from autocomplete
   const handleSymbolSelect = (listing: Listing) => {
@@ -583,9 +642,9 @@ export default function Home() {
             {enableGoogleTrends && (
             <div className="mb-6">
               <div className="inline-flex items-center px-4 py-2.5 rounded-lg bg-gray-800/70 border border-purple-500/40 text-gray-200 mb-3">
-                <span className="text-sm font-medium text-purple-200">Enter queries to analyze</span>
+                <span className="text-sm font-medium text-purple-200">{translations?.[language]?.enterQueries ?? (language === 'he' ? 'הזן מוצרים לניתוח' : 'Enter queries to analyze')}</span>
                 <span className="text-gray-500 mx-2">|</span>
-                <span className="text-xs text-gray-400">Press ENTER or click + to add more</span>
+                <span className="text-xs text-gray-400">{translations?.[language]?.pressEnterAddMore ?? (language === 'he' ? 'Enter או לחיצה על + להוספת מוצר' : 'Press ENTER or click + to add more')}</span>
               </div>
               
               {/* Drag & Drop Zone */}
@@ -623,6 +682,24 @@ export default function Home() {
                   {language === 'he' ? 'בחר קובץ' : 'Select File'}
                 </label>
               </div>
+
+              {/* Quick-fill product preset buttons */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setQueries(['iphone 13', 'iphone 14', 'iphone 15', 'iphone 16', 'iphone 17'])}
+                  className="px-4 py-2 bg-gray-700 hover:bg-purple-600/80 border border-purple-500/50 text-purple-200 rounded-lg text-sm font-medium transition-colors"
+                >
+                  {translations?.[language]?.checkIphones ?? (language === 'he' ? 'בדיקת אייפונים' : 'Check Iphones')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQueries(['rtx 1060', 'rtx 2060', 'rtx 3060', 'rtx 4060', 'rtx 5060'])}
+                  className="px-4 py-2 bg-gray-700 hover:bg-purple-600/80 border border-purple-500/50 text-purple-200 rounded-lg text-sm font-medium transition-colors"
+                >
+                  {translations?.[language]?.checkRTX ?? (language === 'he' ? 'בדיקת RTX' : 'Check RTX')}
+                </button>
+              </div>
               
               <div className="space-y-3">
                 {queries.map((query, index) => (
@@ -646,7 +723,7 @@ export default function Home() {
                         }}
                         onBlur={() => handleQueryBlur(index)}
                         onKeyDown={(e) => handleKeyDown(index, e)}
-                        placeholder={index === 0 ? (enableGoogleTrends ? 'e.g., iPhone 16' : 'לא נדרש עבור Alpha Vantage') : `Query ${index + 1}`}
+                        placeholder={index === 0 ? (enableGoogleTrends ? (translations?.[language]?.placeholderQuery ?? (language === 'he' ? 'למשל iPhone 16' : 'e.g., iPhone 16')) : (language === 'he' ? 'לא נדרש עבור Alpha Vantage' : 'Not required for Alpha Vantage')) : `${translations?.[language]?.queryLabel ?? (language === 'he' ? 'מוצר' : 'Query')} ${index + 1}`}
                         disabled={!enableGoogleTrends}
                         className={`w-full px-6 py-4 bg-gray-900/80 border border-purple-500/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-lg ${!enableGoogleTrends ? 'opacity-50 cursor-not-allowed' : ''}`}
                       />
@@ -674,7 +751,7 @@ export default function Home() {
                         <button
                           onClick={() => removeQueryField(index)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-red-400 hover:text-red-300 transition-colors z-10"
-                          title="Remove query"
+                          title={translations?.[language]?.removeQuery ?? (language === 'he' ? 'הסר מוצר' : 'Remove query')}
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -686,7 +763,7 @@ export default function Home() {
                       <button
                         onClick={() => addQueryField(index)}
                         className="px-4 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg shadow-purple-500/50 flex items-center justify-center min-w-[60px]"
-                        title="Add another query"
+                        title={translations?.[language]?.addQuery ?? (language === 'he' ? 'הוסף מוצר' : 'Add another query')}
                       >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -699,29 +776,51 @@ export default function Home() {
             </div>
             )}
 
-            {/* Data Source Selection */}
-            <div className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+            {/* Data Source Selection - futuristic 2030-style toggles */}
+            <div className="mb-6 p-4 bg-gray-900/50 rounded-xl border border-gray-700/80">
               <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-gray-800/80 border border-purple-500/30 text-purple-200 text-sm font-medium mb-3">
                 {translations?.[language]?.dataSources || (language === 'he' ? 'מקורות נתונים' : 'Data Sources')}
               </div>
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
+              <div className="flex flex-wrap gap-6">
+                <label className="flex items-center gap-3 cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={enableGoogleTrends}
                     onChange={(e) => setEnableGoogleTrends(e.target.checked)}
-                    className="w-5 h-5 rounded border-gray-600 bg-gray-800 text-purple-600 focus:ring-purple-500"
+                    className="sr-only peer"
                   />
-                  <span className="text-gray-300">{translations?.[language]?.useGoogleTrends || (language === 'he' ? 'השתמש ב-Google Trends' : 'Use Google Trends')}</span>
+                  <span className={`relative flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-all duration-300 ease-out peer-focus-visible:ring-2 peer-focus-visible:ring-purple-400 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-gray-900 ${
+                    enableGoogleTrends
+                      ? 'border-purple-400 bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30'
+                      : 'border-gray-600 bg-gray-800/80 text-transparent group-hover:border-gray-500'
+                  }`}>
+                    {enableGoogleTrends && (
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 12 10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 5l3.5 3.5L11 1" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="text-gray-300 group-hover:text-gray-200 transition-colors">{translations?.[language]?.useGoogleTrends || (language === 'he' ? 'השתמש ב-Google Trends' : 'Use Google Trends')}</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-3 cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={enableAlphaVantage}
                     onChange={(e) => setEnableAlphaVantage(e.target.checked)}
-                    className="w-5 h-5 rounded border-gray-600 bg-gray-800 text-purple-600 focus:ring-purple-500"
+                    className="sr-only peer"
                   />
-                  <span className="text-gray-300">{translations?.[language]?.useAlphaVantage || (language === 'he' ? 'השתמש ב-Alpha Vantage' : 'Use Alpha Vantage')}</span>
+                  <span className={`relative flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-all duration-300 ease-out peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-gray-900 ${
+                    enableAlphaVantage
+                      ? 'border-blue-400 bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/30'
+                      : 'border-gray-600 bg-gray-800/80 text-transparent group-hover:border-gray-500'
+                  }`}>
+                    {enableAlphaVantage && (
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 12 10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 5l3.5 3.5L11 1" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="text-gray-300 group-hover:text-gray-200 transition-colors">{translations?.[language]?.useAlphaVantage || (language === 'he' ? 'השתמש ב-Alpha Vantage' : 'Use Alpha Vantage')}</span>
                 </label>
               </div>
             </div>
@@ -730,7 +829,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>
                 <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-gray-800/80 border border-purple-500/30 text-purple-200 text-sm font-medium mb-2">
-                  Region
+                  {translations?.[language]?.region ?? (language === 'he' ? 'אזור' : 'Region')}
                 </div>
                 <select
                   value={region}
@@ -740,7 +839,7 @@ export default function Home() {
                 >
                   {REGIONS.map((r) => (
                     <option key={r.value} value={r.value}>
-                      {r.label}
+                      {language === 'he' ? r.labelHe : r.label}
                     </option>
                   ))}
                 </select>
@@ -748,7 +847,7 @@ export default function Home() {
 
               <div>
                 <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-gray-800/80 border border-purple-500/30 text-purple-200 text-sm font-medium mb-2">
-                  Time Range
+                  {translations?.[language]?.timeRange ?? (language === 'he' ? 'תקופת זמן' : 'Time Range')}
                 </div>
                 <select
                   value={timeRange}
@@ -756,11 +855,11 @@ export default function Home() {
                   disabled={!enableGoogleTrends}
                   className={`w-full px-4 py-3 bg-gray-900/80 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 ${!enableGoogleTrends ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <option value="7d">Last 7 days</option>
-                  <option value="30d">Last 30 days</option>
-                  <option value="12m">Last 12 months</option>
-                  <option value="5y">Last 5 years</option>
-                  <option value="all">All time</option>
+                  <option value="7d">{translations?.[language]?.timeRange7d ?? (language === 'he' ? '7 ימים אחרונים' : 'Last 7 days')}</option>
+                  <option value="30d">{translations?.[language]?.timeRange30d ?? (language === 'he' ? '30 יום אחרונים' : 'Last 30 days')}</option>
+                  <option value="12m">{translations?.[language]?.timeRange12m ?? (language === 'he' ? '12 חודשים אחרונים' : 'Last 12 months')}</option>
+                  <option value="5y">{translations?.[language]?.timeRange5y ?? (language === 'he' ? '5 שנים אחרונות' : 'Last 5 years')}</option>
+                  <option value="all">{translations?.[language]?.timeRangeAll ?? (language === 'he' ? 'כל התקופה' : 'All time')}</option>
                 </select>
               </div>
             </div>
@@ -769,7 +868,7 @@ export default function Home() {
             {enableGoogleTrends && (
             <div className="mb-6">
               <div className="inline-flex items-center px-4 py-2 rounded-lg bg-purple-900/30 border border-purple-500/40 text-purple-200 text-sm font-medium mb-3">
-                Google Trends Data Source (Select One)
+                {translations?.[language]?.googleTrendsSource ?? (language === 'he' ? 'מקור Google Trends (בחר אחד)' : 'Google Trends Data Source (Select One)')}
               </div>
               <div className="flex flex-wrap gap-3">
                 <button
@@ -780,7 +879,7 @@ export default function Home() {
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
-                  {selectedGoogleSource === 'web' ? '✓ ' : ''}🔍 Web Search
+                  {selectedGoogleSource === 'web' ? '✓ ' : ''}🔍 {translations?.[language]?.sourceWeb ?? (language === 'he' ? 'חיפוש ברשת' : 'Web Search')}
                 </button>
                 <button
                   onClick={() => setSelectedGoogleSource('youtube')}
@@ -790,7 +889,7 @@ export default function Home() {
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
-                  {selectedGoogleSource === 'youtube' ? '✓ ' : ''}📺 YouTube
+                  {selectedGoogleSource === 'youtube' ? '✓ ' : ''}📺 {translations?.[language]?.sourceYoutube ?? 'YouTube'}
                 </button>
                 <button
                   onClick={() => setSelectedGoogleSource('images')}
@@ -800,7 +899,7 @@ export default function Home() {
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
-                  {selectedGoogleSource === 'images' ? '✓ ' : ''}🖼️ Images
+                  {selectedGoogleSource === 'images' ? '✓ ' : ''}🖼️ {translations?.[language]?.sourceImages ?? (language === 'he' ? 'תמונות' : 'Images')}
                 </button>
                 <button
                   onClick={() => setSelectedGoogleSource('news')}
@@ -810,7 +909,7 @@ export default function Home() {
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
-                  {selectedGoogleSource === 'news' ? '✓ ' : ''}📰 News
+                  {selectedGoogleSource === 'news' ? '✓ ' : ''}📰 {translations?.[language]?.sourceNews ?? (language === 'he' ? 'חדשות' : 'News')}
                 </button>
                 <button
                   onClick={() => setSelectedGoogleSource('shopping')}
@@ -820,7 +919,7 @@ export default function Home() {
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
-                  {selectedGoogleSource === 'shopping' ? '✓ ' : ''}🛒 Shopping
+                  {selectedGoogleSource === 'shopping' ? '✓ ' : ''}🛒 {translations?.[language]?.sourceShopping ?? (language === 'he' ? 'קניות' : 'Shopping')}
                 </button>
                 <button
                   onClick={() => setSelectedGoogleSource('froogle')}
@@ -830,7 +929,7 @@ export default function Home() {
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
-                  {selectedGoogleSource === 'froogle' ? '✓ ' : ''}🛍️ Froogle
+                  {selectedGoogleSource === 'froogle' ? '✓ ' : ''}🛍️ {translations?.[language]?.sourceFroogle ?? 'Froogle'}
                 </button>
               </div>
             </div>
@@ -841,9 +940,9 @@ export default function Home() {
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-900/40 border border-blue-500/50 text-blue-200 text-lg font-semibold mb-3">
                 <span>📈</span> {translations?.[language]?.alphaTitle || (language === 'he' ? 'ניתוח תזמון מוצר חדש - Alpha Vantage' : 'Product Launch Timing Analysis - Alpha Vantage')}
               </div>
-              <div className="rounded-lg bg-gray-800/60 border border-blue-500/30 px-4 py-3 text-gray-200 text-sm mb-4">
-                {translations?.[language]?.alphaDesc || (language === 'he' ? 'זיהוי מתי חברה צריכה להביא מוצר חדש לשוק על בסיס מגמות במחיר המניה. המחיר משקף את הביצועים - ירידות משמעותיות מצביעות על צורך במוצר חדש.' : 'Identify when a company needs to launch a new product based on stock price trends. Price reflects performance - significant declines indicate need for a new product.')}
-              </div>
+              <p className="text-gray-400 text-sm mb-4 max-w-xl">
+                {translations?.[language]?.alphaDesc ?? (language === 'he' ? 'ניתוח מגמות מחיר המניה להערכת תזמון השקת מוצר חדש.' : 'Stock price trend analysis for product launch timing.')}
+              </p>
               
               <div className="space-y-4">
                 {/* Company Selection */}
@@ -860,23 +959,33 @@ export default function Home() {
                   />
                 </div>
 
-                {/* Time Period */}
+                {/* Time Period - pill buttons like stock quote */}
                   <div>
                     <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-gray-800/80 border border-blue-500/40 text-blue-200 text-sm font-medium mb-2">
-                    {translations?.[language]?.selectPeriod || (language === 'he' ? 'תקופת ניתוח' : 'Analysis Period')}
+                      {translations?.[language]?.selectPeriod || (language === 'he' ? 'תקופת ניתוח' : 'Analysis Period')}
                     </div>
-                    <select
-                      value={alphaRange}
-                      onChange={(e) => setAlphaRange(e.target.value as AlphaVantageRange)}
-                    disabled={!enableAlphaVantage}
-                    className={`w-full px-4 py-3 bg-gray-900/80 border border-blue-500/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${!enableAlphaVantage ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <option value="1year">{language === 'he' ? '1 שנה' : '1 year'}</option>
-                    <option value="3year">{language === 'he' ? '3 שנים' : '3 years'}</option>
-                    <option value="5year">{language === 'he' ? '5 שנים' : '5 years'}</option>
-                    <option value="10year">{language === 'he' ? '10 שנים' : '10 years'}</option>
-                    <option value="alltime">{language === 'he' ? 'כל הזמן (מ-1990)' : 'All Time (from 1990)'}</option>
-                    </select>
+                    <div className={`flex flex-wrap gap-2 ${!enableAlphaVantage ? 'opacity-50 pointer-events-none' : ''}`}>
+                      {([
+                        { value: '1year' as const, labelHe: 'שנה', labelEn: '1Y' },
+                        { value: '3year' as const, labelHe: '3 שנים', labelEn: '3Y' },
+                        { value: '5year' as const, labelHe: '5 שנים', labelEn: '5Y' },
+                        { value: '10year' as const, labelHe: '10 שנים', labelEn: '10Y' },
+                        { value: 'alltime' as const, labelHe: 'מקס\'', labelEn: 'Max' }
+                      ]).map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setAlphaRange(opt.value)}
+                          className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border ${
+                            alphaRange === opt.value
+                              ? 'bg-blue-600 text-white border-blue-500'
+                              : 'bg-gray-800 text-white border-gray-600 hover:bg-gray-700 hover:border-gray-500'
+                          }`}
+                        >
+                          {language === 'he' ? opt.labelHe : opt.labelEn}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   </div>
                 </div>
@@ -888,7 +997,7 @@ export default function Home() {
                 onClick={() => setShowAdvanced(!showAdvanced)}
                 className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-800/70 border border-purple-500/40 text-purple-300 text-sm font-medium hover:bg-purple-900/30 hover:border-purple-500/60 transition-colors"
               >
-                {showAdvanced ? '▼' : '▶'} Advanced Options
+                {showAdvanced ? '▼' : '▶'} {translations?.[language]?.advancedOptions ?? (language === 'he' ? 'אפשרויות מתקדמות' : 'Advanced Options')}
               </button>
               
               {showAdvanced && (
@@ -965,7 +1074,7 @@ export default function Home() {
             {results.series.length > 0 ? (
               <div className="grid grid-cols-1 gap-6 mb-8">
                 {results.series.map((series, index) => (
-                  <TrendCard key={index} series={series} formatTimestamp={formatTimestamp} />
+                  <TrendCard key={index} series={series} formatTimestamp={formatTimestamp} language={language} />
                 ))}
               </div>
             ) : results.series.length === 0 && !results.alphaFixedWindow && !results.alphaSlidingWindow ? (
@@ -988,17 +1097,67 @@ export default function Home() {
               </div>
             )}
 
-            {/* Alpha Vantage Fixed Window Results */}
+            {/* Alpha Vantage: Stock quote style header + chart card only */}
             {results.alphaFixedWindow && (
-              <AlphaFixedWindowCard
+              <StockQuoteHeader
                 data={results.alphaFixedWindow}
-                slidingWindow={results.alphaSlidingWindow}
+                range={alphaRange}
+                onRangeChange={setAlphaRange}
+                language={language}
               />
             )}
 
-            {/* Alpha Vantage Sliding Window Results */}
+            {/* Alpha Vantage Sliding Window Results (chart + metrics strip) */}
             {results.alphaSlidingWindow && (
-              <AlphaSlidingWindowCard data={results.alphaSlidingWindow} />
+              <AlphaSlidingWindowCard
+                data={results.alphaSlidingWindow}
+                timeSeries={results.alphaFixedWindow?.timeSeries}
+                fixedMetrics={results.alphaFixedWindow ? { priceFirst: results.alphaFixedWindow.metrics[results.alphaFixedWindow.symbols[0]]?.priceFirst, priceLast: results.alphaFixedWindow.metrics[results.alphaFixedWindow.symbols[0]]?.priceLast, cumulativeReturn: results.alphaFixedWindow.metrics[results.alphaFixedWindow.symbols[0]]?.cumulativeReturn, stddev: results.alphaFixedWindow.metrics[results.alphaFixedWindow.symbols[0]]?.stddev } : undefined}
+              />
+            )}
+
+            {/* Same Google Trends charts as above — with stock price in tooltip on hover */}
+            {results.series.length > 0 && results.alphaFixedWindow?.timeSeries?.[results.alphaFixedWindow.symbols[0]]?.length && (
+              <div className="mb-8 bg-gradient-to-r from-purple-900/30 via-gray-800/50 to-cyan-900/30 border border-purple-500/30 rounded-xl p-6">
+                <div className="flex flex-wrap items-center gap-3 mb-3">
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <span className="text-2xl opacity-90" aria-hidden>📊</span>
+                    {language === 'he' ? 'מגמות חיפוש ומחיר מניה, ציר זמן מאוחד' : 'Search Trends & Stock Price, Unified Timeline'}
+                  </h3>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border border-purple-500/50 bg-purple-900/40 text-purple-200">
+                    {language === 'he' ? 'ציר זמן מאוחד' : 'Unified timeline'}
+                  </span>
+                </div>
+                <div className="rounded-lg bg-gray-800/60 border border-purple-500/20 px-4 py-2.5 mb-4">
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    {language === 'he'
+                      ? 'דיאגרמות Google Trends לפי מוצר. בריחוף על תאריך בגרף מופיע גם מחיר המניה באותו יום (Alpha Vantage).'
+                      : 'Google Trends by product. Hover over a date to see the stock price for that day (Alpha Vantage).'}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-6">
+                  {results.series.map((series, index) => (
+                    <TrendCard
+                      key={index}
+                      series={series}
+                      formatTimestamp={formatTimestamp}
+                      language={language}
+                      stockTimeSeries={results.alphaFixedWindow?.timeSeries}
+                      stockSymbol={results.alphaFixedWindow?.symbols[0]}
+                    />
+                  ))}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/60 border border-purple-500/20 text-xs">
+                    <span className="text-gray-500">{language === 'he' ? 'מגמות' : 'Trends'}</span>
+                    <span className="text-purple-300">{results.series.map((s) => s.label).join(', ')}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/60 border border-emerald-500/20 text-xs">
+                    <span className="text-gray-500">{language === 'he' ? 'מניה' : 'Stock'}</span>
+                    <span className="text-emerald-400 font-medium">{results.alphaFixedWindow?.symbols[0]}</span>
+                  </span>
+                </div>
+              </div>
             )}
           </>
         )}
@@ -1116,55 +1275,120 @@ function ToggleChip({ label, enabled, onChange }: { label: string; enabled: bool
   );
 }
 
-// Global Insights Component
+// Percent fill bar — bottle/hourglass style (vertical fill from bottom)
+function PercentFillBar({ percent, variant }: { percent: number; variant: 'decline' | 'recovery' }) {
+  const fillHeight = Math.min(Math.max(percent, 0), 100);
+  const isDecline = variant === 'decline';
+  return (
+    <div className="flex items-end gap-3 shrink-0">
+      <div
+        className="w-8 h-16 rounded-b-lg overflow-hidden bg-gray-700/90 border border-gray-600/70 flex flex-col justify-end shadow-inner"
+        title={`${percent}%`}
+      >
+        <div
+          className={`w-full rounded-t transition-all duration-700 ease-out ${
+            isDecline ? 'bg-gradient-to-t from-red-700 via-red-500 to-red-400 shadow-sm' : 'bg-gradient-to-t from-emerald-700 via-emerald-500 to-emerald-400 shadow-sm'
+          }`}
+          style={{ height: `${fillHeight}%`, minHeight: fillHeight > 0 ? 4 : 0 }}
+        />
+      </div>
+      <span className={`text-xl font-bold tabular-nums ${isDecline ? 'text-red-400' : 'text-emerald-400'}`}>
+        {percent}%
+      </span>
+    </div>
+  );
+}
+
+// Global Insights Component — visual percent bars (bottle/hourglass style)
 function GlobalInsights({ series }: { series: TrendSeries[] }) {
   const insights = analyzeAllSeries(series);
-  
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Overall Trend Summary */}
-      <div className="rounded-lg bg-gray-800/60 border border-purple-500/30 px-4 py-3 text-gray-200 text-lg">
-        {insights.overallTrend}
+      <div className="rounded-xl bg-gray-800/60 border border-purple-500/30 px-5 py-3.5">
+        <p className="text-gray-200 text-lg font-medium">{insights.overallTrend}</p>
       </div>
-      
-      {/* Decline Periods */}
+
+      {/* Decline Periods — cards with vertical percent bar */}
       {insights.declinePeriods.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-red-300 font-semibold text-sm mb-2">📉 תקופות ירידה משמעותיות:</div>
-          {insights.declinePeriods.map((decline, index) => (
-            <div key={index} className="rounded-lg bg-red-900/20 border border-red-500/40 px-4 py-2 text-red-200 text-sm">
-              <span className="font-semibold">{decline.platform}:</span> בין {decline.startDate} ל-{decline.endDate} - ירידה של {decline.declinePercent}%
-            </div>
-          ))}
+        <div className="space-y-3">
+          <h4 className="flex items-center gap-2 text-red-300 font-semibold text-sm">
+            <span aria-hidden>📉</span>
+            תקופות ירידה משמעותיות
+          </h4>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {insights.declinePeriods.map((decline, index) => (
+              <div
+                key={index}
+                className="rounded-xl bg-red-900/20 border border-red-500/40 p-4 flex flex-col sm:flex-row sm:items-center gap-4"
+              >
+                <PercentFillBar percent={decline.declinePercent} variant="decline" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-red-100/90 text-sm font-medium truncate" title={decline.platform}>
+                    {decline.platform}
+                  </p>
+                  <p className="text-red-200/80 text-xs mt-0.5">
+                    בין {decline.startDate} ל־{decline.endDate}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
-      
-      {/* Recovery Periods */}
+
+      {/* Recovery Periods — cards with vertical percent bar */}
       {insights.recoveryPeriods.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-green-300 font-semibold text-sm mb-2">📈 תקופות התאוששות:</div>
-          {insights.recoveryPeriods.map((recovery, index) => (
-            <div key={index} className="rounded-lg bg-green-900/20 border border-green-500/40 px-4 py-2 text-green-200 text-sm">
-              <span className="font-semibold">{recovery.platform}:</span> החל מ-{recovery.startDate} - עלייה של {recovery.recoveryPercent}%
-            </div>
-          ))}
+        <div className="space-y-3">
+          <h4 className="flex items-center gap-2 text-green-300 font-semibold text-sm">
+            <span aria-hidden>📈</span>
+            תקופות התאוששות
+          </h4>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {insights.recoveryPeriods.map((recovery, index) => (
+              <div
+                key={index}
+                className="rounded-xl bg-green-900/20 border border-green-500/40 p-4 flex flex-col sm:flex-row sm:items-center gap-4"
+              >
+                <PercentFillBar percent={recovery.recoveryPercent} variant="recovery" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-green-100/90 text-sm font-medium truncate" title={recovery.platform}>
+                    {recovery.platform}
+                  </p>
+                  <p className="text-green-200/80 text-xs mt-0.5">החל מ־{recovery.startDate}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
-      
-      {/* Recommendations */}
+
+      {/* Recommendations — styled like decline/recovery with accent */}
       {insights.recommendations.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-yellow-300 font-semibold text-sm mb-2">💡 המלצות למוצר חדש:</div>
-          {insights.recommendations.map((rec, index) => (
-            <div key={index} className="rounded-lg bg-yellow-900/20 border border-yellow-500/40 px-4 py-3 text-yellow-200 text-sm leading-relaxed">
-              {rec}
-            </div>
-          ))}
+        <div className="space-y-3">
+          <h4 className="flex items-center gap-2 text-amber-300 font-semibold text-sm">
+            <span aria-hidden>💡</span>
+            המלצות למוצר חדש
+          </h4>
+          <div className="space-y-3">
+            {insights.recommendations.map((rec, index) => (
+              <div
+                key={index}
+                className="rounded-xl border border-amber-500/40 overflow-hidden flex shadow-sm"
+              >
+                <div className="w-1.5 shrink-0 bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600" aria-hidden />
+                <div className="flex-1 bg-gradient-to-r from-amber-900/30 to-amber-950/20 px-5 py-4">
+                  <p className="text-amber-50/95 text-sm leading-relaxed">{rec}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
-      
+
       {insights.recommendations.length === 0 && insights.declinePeriods.length === 0 && insights.recoveryPeriods.length === 0 && (
-        <div className="rounded-lg bg-blue-900/20 border border-blue-500/40 px-4 py-2 text-blue-200 text-sm">
+        <div className="rounded-xl bg-blue-900/20 border border-blue-500/40 px-5 py-3.5 text-blue-200 text-sm">
           אין תקופות ירידה או התאוששות משמעותיות זוהו. המשך מעקב אחר המגמות.
         </div>
       )}
@@ -1188,8 +1412,79 @@ function SimpleTooltip({ active, payload, label }: any) {
   );
 }
 
+/** Timestamp (seconds) → YYYY-MM-DD for stock lookup */
+function tsToDateStr(ts: number): string {
+  return new Date(ts * 1000).toISOString().split('T')[0];
+}
+
+/** Find the stock entry with the date closest to the given date (same day, or nearest trading day within a few days). */
+function findClosestStockEntry(
+  targetDateStr: string,
+  stockPrices: Array<{ date: string; price: number }>
+): { date: string; price: number } | null {
+  if (!stockPrices?.length || !targetDateStr) return null;
+  const targetTime = new Date(targetDateStr).getTime();
+  let best: { date: string; price: number; diff: number } | null = null;
+  for (const p of stockPrices) {
+    const t = new Date(p.date).getTime();
+    const diff = Math.abs(t - targetTime);
+    if (best === null || diff < best.diff) {
+      best = { date: p.date, price: p.price, diff };
+    }
+  }
+  return best ? { date: best.date, price: best.price } : null;
+}
+
+// Tooltip for TrendCard when stock data is shown — same as SimpleTooltip + stock price (nearest date) + date of price
+function TrendCardTooltipWithStock({
+  active,
+  payload,
+  label,
+  stockTimeSeries,
+  stockSymbol,
+  formatDisplayDate,
+  language = 'he'
+}: any) {
+  if (!active || !payload || payload.length === 0) return null;
+  const row = payload[0]?.payload;
+  const timestamp = row?.timestamp;
+  const stockPrices = stockSymbol && stockTimeSeries?.[stockSymbol];
+  const dateStr = typeof timestamp === 'number' ? tsToDateStr(timestamp) : '';
+  const stockEntry = findClosestStockEntry(dateStr, stockPrices || []);
+
+  return (
+    <div className="bg-gray-800 p-4 rounded-lg border border-purple-500 shadow-lg">
+      <p className="text-white font-semibold mb-2">{label}</p>
+      {payload.map((entry: any, idx: number) => (
+        <p key={idx} className="text-purple-300 text-sm mb-1">
+          <span className="font-medium">{entry.name}:</span> {entry.value}
+        </p>
+      ))}
+      {stockEntry != null && (
+        <p className="text-emerald-400 text-sm mt-2 pt-2 border-t border-gray-600 font-medium">
+          {language === 'he'
+            ? `מחיר מניה (${stockSymbol}) ב־${formatDisplayDate(stockEntry.date)}: $${stockEntry.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            : `Stock price (${stockSymbol}) on ${formatDisplayDate(stockEntry.date)}: $${stockEntry.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // Trend Card Component
-function TrendCard({ series, formatTimestamp }: { series: TrendSeries; formatTimestamp: (ts: number) => string }) {
+function TrendCard({
+  series,
+  formatTimestamp,
+  language = 'en',
+  stockTimeSeries,
+  stockSymbol
+}: {
+  series: TrendSeries;
+  formatTimestamp: (ts: number) => string;
+  language?: 'he' | 'en';
+  stockTimeSeries?: Record<string, Array<{ date: string; price: number }>>;
+  stockSymbol?: string;
+}) {
   const lifecycle = getLifecycleLabel(series);
   const description = getLifecycleDescription(lifecycle);
   const badgeColor = getLifecycleColor(lifecycle);
@@ -1295,7 +1590,21 @@ function TrendCard({ series, formatTimestamp }: { series: TrendSeries; formatTim
                 tick={{ fill: '#9CA3AF', fontSize: 12 }}
                 tickLine={{ stroke: '#374151' }}
               />
-              <Tooltip content={(props: any) => <SimpleTooltip {...props} />} />
+              <Tooltip
+                content={(props: any) =>
+                  stockTimeSeries && stockSymbol ? (
+                    <TrendCardTooltipWithStock
+                      {...props}
+                      stockTimeSeries={stockTimeSeries}
+                      stockSymbol={stockSymbol}
+                      formatDisplayDate={formatDisplayDate}
+                      language={language}
+                    />
+                  ) : (
+                    <SimpleTooltip {...props} />
+                  )
+                }
+              />
               <Legend 
                 wrapperStyle={{ color: '#9CA3AF', fontSize: '12px' }}
                 iconType="line"
@@ -1334,48 +1643,116 @@ function TrendCard({ series, formatTimestamp }: { series: TrendSeries; formatTim
       ) : (
         <div className="h-48 flex items-center justify-center">
           <div className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-800/60 border border-gray-600 text-gray-400 text-sm">
-            No data points available
+            {language === 'he' ? 'אין נקודות נתונים' : 'No data points available'}
           </div>
         </div>
       )}
 
-      {/* Summary */}
-      <div className="pt-4 border-t border-gray-700">
-        <div className="rounded-lg bg-gray-800/50 border border-purple-500/30 px-3 py-2 text-sm text-gray-300 mb-3">
-          {description}
-        </div>
-        <div className="inline-flex flex-wrap items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-800/60 border border-purple-500/30 text-gray-300 text-xs">
-          <span className="text-purple-300 font-medium">Queries:</span>
-          <span className="text-purple-400">{series.query}</span>
+      {/* Summary — compact, scannable */}
+      <div className="pt-4 border-t border-gray-700 space-y-3">
+        <p className="text-sm text-gray-400 leading-snug">{description}</p>
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-800/60 border border-gray-600/60 text-xs">
+            <span className="text-gray-500">{language === 'he' ? 'שאילתות' : 'Queries'}</span>
+            <span className="text-purple-300 truncate max-w-[180px]" title={series.query}>{series.query}</span>
+          </span>
           {series.extra?.region && (
-            <>
-              <span className="text-gray-500">•</span>
-              <span className="text-purple-300 font-medium">Region:</span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-800/60 border border-gray-600/60 text-xs text-gray-300">
+              <span className="text-gray-500">{language === 'he' ? 'אזור' : 'Region'}</span>
               <span>{series.extra.region}</span>
-            </>
+            </span>
           )}
           {series.extra?.category && (
-            <>
-              <span className="text-gray-500">•</span>
-              <span className="text-purple-300 font-medium">Category:</span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-800/60 border border-gray-600/60 text-xs text-gray-300">
+              <span className="text-gray-500">{language === 'he' ? 'קטגוריה' : 'Category'}</span>
               <span>{series.extra.category}</span>
-            </>
+            </span>
           )}
         </div>
-        {/* Show related queries if available */}
-        {series.extra?.related_queries && (
-          <div className="mt-3 pt-3 border-t border-gray-700">
-            <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-gray-800/50 border border-gray-600 text-gray-400 text-xs font-medium mb-2">Related Queries:</div>
-            <div className="flex flex-wrap gap-1">
-              {series.extra.related_queries.top?.slice(0, 3).map((q: any, i: number) => (
-                <span key={i} className="text-xs bg-purple-900/30 text-purple-300 px-2 py-1 rounded">
-                  {q.query}
-                </span>
-              ))}
-            </div>
+        {series.extra?.related_queries?.top && series.extra.related_queries.top.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-gray-500">{language === 'he' ? 'קשור' : 'Related'}</span>
+            {series.extra.related_queries.top.slice(0, 3).map((q: any, i: number) => (
+              <span key={i} className="text-xs bg-purple-900/30 text-purple-300 px-2 py-0.5 rounded">
+                {q.query}
+              </span>
+            ))}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Stock Quote style header (like Google Finance / trading apps)
+function StockQuoteHeader({
+  data,
+  range,
+  onRangeChange,
+  language
+}: {
+  data: { symbols: string[]; range: { start: string; end: string }; metrics: Record<string, Record<string, number>> };
+  range: string;
+  onRangeChange: (r: AlphaVantageRange) => void;
+  language: string;
+}) {
+  const symbol = data.symbols[0];
+  const metrics = data.metrics[symbol] || {};
+  const priceFirst = metrics.priceFirst as number | undefined;
+  const priceLast = metrics.priceLast as number | undefined;
+  const cumulativeReturn = metrics.cumulativeReturn as number | undefined ?? 0;
+  const companyName = SYMBOL_COMPANY_NAMES[symbol] || symbol;
+  const changeDollars = typeof priceFirst === 'number' && typeof priceLast === 'number' ? priceLast - priceFirst : 0;
+  const isPositive = cumulativeReturn >= 0;
+
+  const rangeOptions: { value: AlphaVantageRange; labelHe: string; labelEn: string }[] = [
+    { value: '1year', labelHe: 'שנה', labelEn: '1Y' },
+    { value: '3year', labelHe: '3 שנים', labelEn: '3Y' },
+    { value: '5year', labelHe: '5 שנים', labelEn: '5Y' },
+    { value: '10year', labelHe: '10 שנים', labelEn: '10Y' },
+    { value: 'alltime', labelHe: 'מקס\'', labelEn: 'Max' }
+  ];
+  const rangeLabel = range === 'alltime' ? (language === 'he' ? 'כל הזמן' : 'All Time') : rangeOptions.find(r => r.value === range)?.[language === 'he' ? 'labelHe' : 'labelEn'] || range;
+
+  return (
+    <div className="mb-6 p-6 rounded-2xl bg-gray-900/80 border border-gray-700">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">{companyName}</h1>
+          <p className="text-gray-400 text-sm mt-0.5">NASDAQ: {symbol}</p>
+        </div>
+      </div>
+      {typeof priceLast === 'number' && (
+        <div className="mb-1">
+          <span className="text-4xl font-bold text-white">USD {priceLast.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        </div>
+      )}
+      {typeof priceFirst === 'number' && typeof priceLast === 'number' && (
+        <div className={`flex items-center gap-2 text-lg font-semibold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+          <span>{isPositive ? '↑' : '↓'}</span>
+          <span>{isPositive ? '+' : ''}{changeDollars.toFixed(2)} ({isPositive ? '+' : ''}{Number(cumulativeReturn).toFixed(2)}%)</span>
+          <span className="text-gray-500 text-sm font-normal">({rangeLabel})</span>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2 mt-4">
+        {rangeOptions.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onRangeChange(opt.value)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              range === opt.value
+                ? 'bg-blue-600 text-white border border-blue-500'
+                : 'bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 hover:border-gray-500'
+            }`}
+          >
+            {language === 'he' ? opt.labelHe : opt.labelEn}
+          </button>
+        ))}
+      </div>
+      <p className="text-gray-500 text-xs mt-3">
+        {language === 'he' ? 'סגור:' : 'Close:'} {formatDisplayDate(data.range.end)} • {language === 'he' ? 'לחץ על תקופה ואז "ניתוח מגמות" לעדכון' : 'Select period then click Analyze to update'}
+      </p>
     </div>
   );
 }
@@ -1419,28 +1796,6 @@ function AlphaFixedWindowCard({ data, slidingWindow }: { data: any; slidingWindo
 
   const fmt = (n: number) => (n >= 1e6 || (n < 0.01 && n > 0)) ? n.toFixed(2) : n.toLocaleString('he-IL', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
-  // Recommendation based only on displayReturn (same as card) so it matches the chart
-  let recommendation = '';
-  let recommendationColor = 'text-gray-300';
-  let recommendationIcon = '✅';
-  if (cumulativeReturn < -20) {
-    recommendation = 'דחוף: החברה חוותה ירידה משמעותית – מומלץ לשקול מוצר חדש';
-    recommendationColor = 'text-red-400';
-    recommendationIcon = '🚨';
-  } else if (cumulativeReturn < -10) {
-    recommendation = 'תשומת לב: יש ירידה – כדאי לעקוב ולשקול מוצר חדש';
-    recommendationColor = 'text-yellow-400';
-    recommendationIcon = '⚠️';
-  } else if (cumulativeReturn < 0) {
-    recommendation = 'מגמה שלילית קלה – כדאי לעקוב';
-    recommendationColor = 'text-orange-400';
-    recommendationIcon = '📉';
-  } else {
-    recommendation = 'החברה במצב טוב – אין צורך דחוף במוצר חדש';
-    recommendationColor = 'text-green-400';
-    recommendationIcon = '✅';
-  }
-
   return (
     <div className="mb-8 bg-gradient-to-r from-blue-900/30 to-cyan-900/30 border border-blue-500/30 rounded-xl p-6">
       <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-900/40 border border-blue-500/50 text-blue-200 text-xl font-bold mb-4">
@@ -1453,17 +1808,6 @@ function AlphaFixedWindowCard({ data, slidingWindow }: { data: any; slidingWindo
         <span className="font-medium">{formatDisplayDate(data.range.start)}</span>
         <span className="text-gray-500">עד</span>
         <span className="font-medium">{formatDisplayDate(data.range.end)}</span>
-      </div>
-
-      {/* Recommendation */}
-      <div className={`mb-6 p-4 rounded-lg border-2 ${recommendationColor.includes('red') ? 'bg-red-900/20 border-red-500/50' : recommendationColor.includes('yellow') ? 'bg-yellow-900/20 border-yellow-500/50' : recommendationColor.includes('orange') ? 'bg-orange-900/20 border-orange-500/50' : 'bg-green-900/20 border-green-500/50'}`}>
-        <div className="flex items-start gap-3">
-          <span className="text-2xl">{recommendationIcon}</span>
-          <div>
-            <h3 className={`font-bold text-lg mb-1 ${recommendationColor}`}>המלצה</h3>
-            <p className={`text-base ${recommendationColor}`}>{recommendation}</p>
-          </div>
-        </div>
       </div>
 
       {/* Simplified Metrics Display - clear for client */}
@@ -1513,7 +1857,15 @@ function AlphaFixedWindowCard({ data, slidingWindow }: { data: any; slidingWindo
 }
 
 // Alpha Vantage Sliding Window Card Component
-function AlphaSlidingWindowCard({ data }: { data: any }) {
+function AlphaSlidingWindowCard({
+  data,
+  timeSeries,
+  fixedMetrics
+}: {
+  data: any;
+  timeSeries?: Record<string, Array<{ date: string; price: number }>>;
+  fixedMetrics?: { priceFirst?: number; priceLast?: number; cumulativeReturn?: number; stddev?: number };
+}) {
   const symbolColors: Record<string, string> = {
     'AAPL': '#3B82F6',
     'MSFT': '#10B981',
@@ -1524,27 +1876,29 @@ function AlphaSlidingWindowCard({ data }: { data: any }) {
     'AMZN': '#06B6D4'
   };
 
-  const getSymbolColor = (symbol: string) => {
-    return symbolColors[symbol] || '#8B5CF6';
-  };
+  const getSymbolColor = (symbol: string) => symbolColors[symbol] || '#8B5CF6';
 
-  // Chart: display actual price instead of return percentage
+  // For price chart: green when up, red when down (like trading apps)
+  const trendPositive = (fixedMetrics?.cumulativeReturn ?? 0) >= 0;
+  const priceLineColor = trendPositive ? '#22C55E' : '#EF4444';
+
+  // Chart: display actual price at actual trading date (so date and price match reality)
+  const firstWindow = data.windows[0];
+  const firstPointDate = firstWindow?.start ?? data.range.start;
   const firstPoint: any = {
-    date: data.range.start,
-    timestamp: new Date(data.range.start).getTime()
+    date: firstPointDate,
+    timestamp: new Date(firstPointDate).getTime()
   };
   // Get first price for each symbol - calculate from first window price and returnFromPeriodStart
   data.symbols.forEach((symbol: string) => {
-    const firstWindow = data.windows[0];
     if (firstWindow?.metrics[symbol]) {
       const firstMetrics = firstWindow.metrics[symbol];
       if (firstMetrics.price !== undefined && firstMetrics.returnFromPeriodStart !== undefined) {
-        // Calculate first price: if first window has price P and return R%, then first price = P / (1 + R/100)
+        // First price = price at period start (so chart starts at real first date with correct level)
         const firstWindowPrice = firstMetrics.price;
         const firstReturn = firstMetrics.returnFromPeriodStart;
         firstPoint[`${symbol}_price`] = firstWindowPrice / (1 + firstReturn / 100);
       } else if (firstMetrics.price !== undefined) {
-        // If no returnFromPeriodStart, use the price directly (shouldn't happen, but fallback)
         firstPoint[`${symbol}_price`] = firstMetrics.price;
       } else {
         firstPoint[`${symbol}_price`] = undefined;
@@ -1555,10 +1909,11 @@ function AlphaSlidingWindowCard({ data }: { data: any }) {
     firstPoint[`${symbol}_stddev`] = undefined;
   });
 
+  // Use window.end for date so each point = (actual trading date, closing price on that date)
   const restOfChartData = data.windows.map((window: any) => {
     const point: any = {
-      date: window.midpoint,
-      timestamp: new Date(window.midpoint).getTime()
+      date: window.end,
+      timestamp: new Date(window.end).getTime()
     };
     data.symbols.forEach((symbol: string) => {
       const metrics = window.metrics[symbol] || {};
@@ -1580,28 +1935,35 @@ function AlphaSlidingWindowCard({ data }: { data: any }) {
 
   const chartData = [firstPoint, ...restOfChartData];
 
+  // Price chart: one point per week (from timeSeries) when available; otherwise one point per window
+  const symbol = data.symbols[0];
+  const priceChartData =
+    timeSeries?.[symbol] && timeSeries[symbol].length > 0
+      ? timeSeries[symbol].map((p: { date: string; price: number }) => ({
+          date: p.date,
+          timestamp: new Date(p.date).getTime(),
+          [`${symbol}_price`]: p.price
+        }))
+      : chartData;
+
   return (
     <div className="mb-8 bg-gradient-to-r from-blue-900/30 to-cyan-900/30 border border-blue-500/30 rounded-xl p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-2xl">📉</span>
-        <h2 className="text-2xl font-bold glow-text text-blue-300">מגמות יורדות - {data.symbols[0]}</h2>
+      {/* Section title - consistent with volatility block */}
+      <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-800/50 border border-blue-500/30 text-blue-200 text-base font-semibold mb-2">
+        <span className="text-lg opacity-90">📈</span>
+        <span>גרף מחירים – {data.symbols[0]}</span>
       </div>
-      <div className="rounded-lg bg-gray-800/50 border border-blue-500/30 px-4 py-2.5 text-gray-300 text-sm mb-6">
-        מעקב אחר ירידות במחיר המניה לאורך זמן – אזורים אדומים מצביעים על צורך במוצר חדש
-      </div>
+      <p className="text-gray-400 text-sm leading-relaxed mb-4 max-w-2xl">מעקב אחר מחיר המניה – ירידות משמעותיות יכולות להצביע על צורך במוצר חדש.</p>
 
-      {/* Price Chart - Main focus for product timing */}
-      {data.windows.length > 0 && data.windows[0].metrics[data.symbols[0]]?.price !== undefined && (
+      {/* Price Chart - clean style like trading apps (one point per week when timeSeries available) */}
+      {data.windows.length > 0 && (timeSeries?.[symbol]?.length ? true : data.windows[0].metrics[symbol]?.price !== undefined) && (
         <div className="mb-6">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-900/40 border border-blue-500/50 text-blue-200 text-lg font-semibold mb-3">
-            📈 מחיר המניה לאורך זמן
-          </div>
-          <div className="rounded-lg bg-gray-800/50 border border-blue-500/30 px-4 py-2.5 text-gray-300 text-sm mb-3">
-            מעקב אחר מחיר המניה לאורך זמן. הנתונים מוצגים לפי שבועות בין {formatDisplayDate(data.range.start)} ל־{formatDisplayDate(data.range.end)}
+          <div className="rounded-lg bg-gray-800/40 border border-gray-700/50 px-4 py-2 text-gray-500 text-xs font-medium tracking-wide mb-3">
+            נתונים שבועיים · {formatDisplayDate(data.range.start)} עד {formatDisplayDate(data.range.end)}
           </div>
           <div style={{ height: '350px' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
+              <LineChart data={priceChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis
                   dataKey="date"
@@ -1632,39 +1994,70 @@ function AlphaSlidingWindowCard({ data }: { data: any }) {
                   }}
                   labelFormatter={(label) => (label ? formatDisplayDate(String(label)) : label)}
                 />
-                <Legend 
-                  wrapperStyle={{ color: '#9CA3AF', fontSize: '12px' }}
-                  iconType="line"
-                />
-                {data.symbols.map((symbol: string) => (
+                <Legend wrapperStyle={{ color: '#9CA3AF', fontSize: '12px' }} iconType="line" />
+                {data.symbols.map((sym: string) => (
                   <Line
-                    key={`${symbol}_price`}
+                    key={`${sym}_price`}
                     type="monotone"
-                    dataKey={`${symbol}_price`}
-                    stroke={getSymbolColor(symbol)}
+                    dataKey={`${sym}_price`}
+                    stroke={priceLineColor}
                     strokeWidth={3}
                     dot={false}
                     activeDot={{ r: 5 }}
-                    name={`${symbol} - מחיר`}
+                    name={`${sym} - מחיר`}
                   />
                 ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
+
+          {/* Metrics strip below chart (like Google Finance) */}
+          {fixedMetrics && (
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4 rounded-lg bg-gray-800/50 border border-gray-700 p-4">
+              {typeof fixedMetrics.priceFirst === 'number' && (
+                <div>
+                  <div className="text-gray-500 text-xs uppercase tracking-wide">שפל תקופה</div>
+                  <div className="text-white font-semibold">{fixedMetrics.priceFirst.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                </div>
+              )}
+              {typeof fixedMetrics.priceLast === 'number' && (
+                <div>
+                  <div className="text-gray-500 text-xs uppercase tracking-wide">שיא תקופה</div>
+                  <div className="text-white font-semibold">{fixedMetrics.priceLast.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                </div>
+              )}
+              {typeof fixedMetrics.cumulativeReturn === 'number' && (
+                <div>
+                  <div className="text-gray-500 text-xs uppercase tracking-wide">שינוי</div>
+                  <div className={`font-semibold ${fixedMetrics.cumulativeReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {(fixedMetrics.cumulativeReturn >= 0 ? '+' : '') + Number(fixedMetrics.cumulativeReturn).toFixed(2)}%
+                  </div>
+                </div>
+              )}
+              {typeof fixedMetrics.stddev === 'number' && (
+                <div>
+                  <div className="text-gray-500 text-xs uppercase tracking-wide">תנודתיות</div>
+                  <div className="text-white font-semibold">{Number(fixedMetrics.stddev).toFixed(2)}</div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Additional volatility chart */}
+      {/* Additional volatility chart - same title/caption style as price chart */}
       {data.windows.length > 0 && data.windows[0].metrics[data.symbols[0]]?.stddev !== undefined && (
         <div className="mb-6">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-900/40 border border-blue-500/50 text-blue-200 text-lg font-semibold mb-3">
-            📊 תנודתיות לאורך זמן
+          <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-800/50 border border-blue-500/30 text-blue-200 text-base font-semibold mb-2">
+            <span className="text-lg opacity-90">📊</span>
+            <span>תנודתיות לאורך זמן</span>
           </div>
-          <div className="rounded-lg bg-gray-800/50 border border-blue-500/30 px-4 py-2.5 text-gray-300 text-sm mb-3">
-            תנודתיות גבוהה = שוק לא יציב – יכול להצביע על צורך במוצר חדש. הנתונים מוצגים לפי שבועות בין {formatDisplayDate(data.range.start)} ל־{formatDisplayDate(data.range.end)}
+          <p className="text-gray-400 text-sm leading-relaxed mb-3 max-w-2xl">תנודתיות גבוהה מעידה על שוק לא יציב ועלולה להצביע על צורך במוצר חדש.</p>
+          <div className="rounded-lg bg-gray-800/40 border border-gray-700/50 px-4 py-2 text-gray-500 text-xs font-medium tracking-wide mb-3">
+            נתונים שבועיים · {formatDisplayDate(data.range.start)} עד {formatDisplayDate(data.range.end)}
           </div>
           <details className="mb-3">
-            <summary className="text-xs text-blue-400 cursor-pointer hover:text-blue-300">
+            <summary className="text-xs text-blue-400 cursor-pointer hover:text-blue-300 font-medium py-1">
               מה זה תנודתיות ואיך זה מחושב?
             </summary>
             <div className="text-xs text-gray-400 mt-2 p-3 bg-gray-900/50 rounded">

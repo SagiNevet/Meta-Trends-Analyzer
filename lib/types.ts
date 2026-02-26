@@ -46,6 +46,8 @@ export interface AlphaFixedWindowResponse {
   metrics: Record<string, Record<string, number>>;
   correlation: Record<string, number>;
   covariance: Record<string, number>;
+  /** Raw time series (date, price) per symbol for charting one point per week/day */
+  timeSeries?: Record<string, Array<{ date: string; price: number }>>;
 }
 
 export interface AlphaSlidingWindowResponse {

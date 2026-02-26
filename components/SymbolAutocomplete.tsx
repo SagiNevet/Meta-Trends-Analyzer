@@ -124,8 +124,11 @@ export default function SymbolAutocomplete({
           } else {
             setSuggestions(localResults);
           }
-        } catch (error) {
-          console.error('Remote search failed:', error);
+        } catch (remoteError) {
+          // Network/API unavailable (e.g. server not running) — use local results only, no console spam
+          const msg = remoteError instanceof Error ? remoteError.message : String(remoteError);
+          const isNetworkError = remoteError instanceof TypeError && (msg === 'Failed to fetch' || msg.includes('fetch'));
+          if (!isNetworkError) console.warn('Remote symbol search unavailable:', remoteError);
           setSuggestions(localResults);
         }
       } else {

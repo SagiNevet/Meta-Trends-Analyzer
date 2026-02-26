@@ -596,8 +596,14 @@ export default function Home() {
       const data: AnalyzeResponse = await response.json();
       setResults(data);
     } catch (error) {
-      console.error('Error:', error);
-      alert('Failed to fetch trend data. Check console for details.');
+      const msg = error instanceof Error ? error.message : String(error);
+      const isNetworkError = error instanceof TypeError && (msg === 'Failed to fetch' || msg.includes('fetch'));
+      console.error('Analyze error:', error);
+      if (isNetworkError) {
+        alert('Network error. Make sure the app is running (e.g. npm run dev) and try again.');
+      } else {
+        alert('Failed to fetch trend data. Check console for details.');
+      }
     } finally {
       setLoading(false);
     }
@@ -849,18 +855,29 @@ export default function Home() {
                 <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-gray-800/80 border border-purple-500/30 text-purple-200 text-sm font-medium mb-2">
                   {translations?.[language]?.timeRange ?? (language === 'he' ? 'תקופת זמן' : 'Time Range')}
                 </div>
-                <select
-                  value={timeRange}
-                  onChange={(e) => setTimeRange(e.target.value as TimeRange)}
-                  disabled={!enableGoogleTrends}
-                  className={`w-full px-4 py-3 bg-gray-900/80 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 ${!enableGoogleTrends ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <option value="7d">{translations?.[language]?.timeRange7d ?? (language === 'he' ? '7 ימים אחרונים' : 'Last 7 days')}</option>
-                  <option value="30d">{translations?.[language]?.timeRange30d ?? (language === 'he' ? '30 יום אחרונים' : 'Last 30 days')}</option>
-                  <option value="12m">{translations?.[language]?.timeRange12m ?? (language === 'he' ? '12 חודשים אחרונים' : 'Last 12 months')}</option>
-                  <option value="5y">{translations?.[language]?.timeRange5y ?? (language === 'he' ? '5 שנים אחרונות' : 'Last 5 years')}</option>
-                  <option value="all">{translations?.[language]?.timeRangeAll ?? (language === 'he' ? 'כל התקופה' : 'All time')}</option>
-                </select>
+                <div className={`flex flex-wrap gap-2 ${!enableGoogleTrends ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {([
+                    { value: '7d' as TimeRange, labelHe: '7 ימים', labelEn: '7 days' },
+                    { value: '30d' as TimeRange, labelHe: '30 יום', labelEn: '30 days' },
+                    { value: '12m' as TimeRange, labelHe: '12 חודשים', labelEn: '12 months' },
+                    { value: '5y' as TimeRange, labelHe: '5 שנים', labelEn: '5 years' },
+                    { value: 'all' as TimeRange, labelHe: 'כל התקופה', labelEn: 'All' }
+                  ]).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setTimeRange(opt.value)}
+                      disabled={!enableGoogleTrends}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        timeRange === opt.value
+                          ? 'bg-blue-600 text-white border border-blue-500'
+                          : 'bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700 hover:border-gray-500'
+                      }`}
+                    >
+                      {language === 'he' ? opt.labelHe : opt.labelEn}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 

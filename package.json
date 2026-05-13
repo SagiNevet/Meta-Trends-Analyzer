@@ -2,6 +2,8 @@
   "name": "meta-trends-analyzer",
   "version": "0.1.0",
   "private": true,
+  "author": "שותפי הפרויקט: שגיא נבט; פרופסור אריק שדה",
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -73,7 +73,11 @@ const translations = {
     useGoogleTrends: 'השתמש ב-Google Trends',
     useAlphaVantage: 'השתמש ב-Alpha Vantage',
     warnings: 'אזהרות',
-    alphaWarnings: 'אזהרות Alpha Vantage'
+    alphaWarnings: 'אזהרות Alpha Vantage',
+    footerPartnersLabel: 'שותפי הפרויקט',
+    footerPartnersLine: 'שגיא נבט · פרופסור אריק שדה',
+    footerCopyright: '© כל הזכויות שמורות',
+    footerPowered: 'מבוסס על Google Trends API ו-Alpha Vantage'
   },
   en: {
     title: 'Meta Trends Analyzer',
@@ -114,7 +118,11 @@ const translations = {
     useGoogleTrends: 'Use Google Trends',
     useAlphaVantage: 'Use Alpha Vantage',
     warnings: 'Warnings',
-    alphaWarnings: 'Alpha Vantage Warnings'
+    alphaWarnings: 'Alpha Vantage Warnings',
+    footerPartnersLabel: 'Project partners',
+    footerPartnersLine: 'Sagi Navat · Prof. Arik Sadeh',
+    footerCopyright: '© All rights reserved',
+    footerPowered: 'Powered by Google Trends API & Alpha Vantage'
   }
 };
 
@@ -1265,9 +1273,36 @@ export default function Home() {
               </div>
             </div>
           )}
-          <div className="text-center">
-            <div className="inline-flex items-center px-5 py-2.5 rounded-lg bg-gray-800/50 border border-purple-500/30 text-gray-400 text-sm">
-              Meta Trends Analyzer • Powered by Google Trends API & Alpha Vantage
+          <div className="max-w-4xl mx-auto px-2">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-stretch sm:justify-center">
+              {/* Large card — credits & hierarchy */}
+              <div className="relative flex-1 min-w-0 rounded-2xl border border-purple-500/20 bg-gradient-to-br from-gray-900/95 via-gray-900/80 to-purple-950/25 px-6 py-6 sm:py-7 shadow-[0_0_40px_-12px_rgba(139,92,246,0.35)] text-center sm:text-start">
+                <div
+                  className="pointer-events-none absolute inset-y-4 start-0 w-px rounded-full bg-gradient-to-b from-transparent via-purple-400/50 to-transparent sm:block hidden"
+                  aria-hidden
+                />
+                <p className="text-lg sm:text-xl font-bold text-white tracking-tight mb-1">
+                  Meta Trends Analyzer
+                </p>
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-purple-300/80 mb-3">
+                  {translations[language].footerPartnersLabel}
+                </p>
+                <p className="text-base sm:text-lg font-medium text-gray-100 leading-snug mb-4">
+                  {translations[language].footerPartnersLine}
+                </p>
+                <p className="text-xs text-gray-500 border-t border-gray-700/80 pt-4 mt-1">
+                  {translations[language].footerCopyright}
+                </p>
+              </div>
+              {/* Small card — data sources */}
+              <div className="shrink-0 flex flex-col justify-center rounded-xl border border-cyan-500/15 bg-gray-900/50 px-4 py-4 sm:py-5 sm:max-w-[200px] text-center shadow-inner shadow-black/20">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-cyan-500/70 mb-2 block">
+                  {translations[language].dataSources}
+                </span>
+                <p className="text-[11px] sm:text-xs leading-relaxed text-gray-400">
+                  {translations[language].footerPowered}
+                </p>
+              </div>
             </div>
           </div>
         </div>

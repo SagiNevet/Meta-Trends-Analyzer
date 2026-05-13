@@ -396,7 +396,7 @@ The project is designed for easy enhancement and scaling, with clear separation 
 
 ---
 
-**Built by**: AI Assistant
-**Stack**: Next.js 15 + TypeScript + Tailwind + Recharts
-**License**: MIT
+**Project partners**: שגיא נבט · פרופסור אריק שדה  
+**Stack**: Next.js 15 + TypeScript + Tailwind + Recharts  
+**License**: Proprietary — see `LICENSE` in the repository root
 

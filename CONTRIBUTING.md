@@ -184,5 +184,5 @@ Open an issue for:
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+This repository is proprietary (see `LICENSE` and the README section on project partners). Do not submit pull requests or other contributions unless you have a prior written agreement with the copyright holders on ownership and licensing of those contributions.
 
